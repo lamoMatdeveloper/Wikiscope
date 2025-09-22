@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WikiScope — Autenticación</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#FAFAFA; --card:#FFFFFF; --text:#222; --muted:#6b7280;
+      --stroke:#E5E7EB; --blue:#2D6CDF; --blue-2:#1F56C5; --aqua:#09C3D6;
+      --radius:16px; --shadow:0 8px 24px rgba(0,0,0,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:28px}
+    .card{
+      width:min(760px,92vw);background:var(--card);border:1px solid var(--stroke);
+      border-radius:18px;padding:36px 34px;box-shadow:var(--shadow);transition:width .18s cubic-bezier(.2,.8,.2,1)
+    }
+    .card[data-view="login"]{width:420px}
+    .card[data-view="signup"]{width:520px}
+    .card[data-view="verify"]{width:520px}
+    .card[data-view="prefs"]{width:min(720px,92vw)}
+    .title{font-family:Georgia,Cambria,Times,"Times New Roman",serif;font-size:42px;letter-spacing:-.01em;line-height:1.1;margin:0 0 12px;text-align:center}
+    .subtitle{font-size:28px;font-weight:700;margin:10px 0 18px;font-family:Georgia,serif;text-align:center}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:14px}
+    .stack{display:grid;gap:14px}
+    .field{display:grid;gap:8px}
+    label{font-size:14px;color:#374151}
+    input[type="email"],input[type="password"],input[type="text"]{
+      width:100%;height:48px;padding:12px 14px;border:1px solid var(--stroke);border-radius:12px;background:#fff;font-size:16px
+    }
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      min-height:48px;padding:0 18px;border:1px solid transparent;border-radius:12px;
+      background:linear-gradient(var(--blue),var(--blue-2));color:#fff;font-weight:700;cursor:pointer
+    }
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .btn.secondary{background:#EEF2FF;color:#1F3A8A;border-color:#C7D2FE}
+    .links{display:flex;gap:22px;flex-wrap:wrap;margin-top:8px;justify-content:center}
+    .link{color:var(--blue);text-decoration:none} .link:hover{text-decoration:underline}
+    .center{display:grid;gap:12px;justify-items:center}
+
+    /* Password strength */
+    .strength{position:relative;border:1px solid var(--stroke);border-radius:12px;padding:8px}
+    .bar{height:6px;background:#E5E7EB;border-radius:999px;overflow:hidden}
+    .bar > span{display:block;height:100%;width:0;background:#f59e0b;transition:width .2s}
+    .strength-label{position:absolute;right:12px;top:8px;color:#374151;font-size:14px}
+
+    /* OTP */
+    .otp{display:flex;gap:14px;margin:14px 0 18px;justify-content:center}
+    .otp input{
+      width:56px;height:60px;text-align:center;font-size:22px;font-weight:700;
+      border:1px solid var(--stroke);border-radius:12px;transition:box-shadow .15s
+    }
+    .otp input:focus{outline:none;box-shadow:0 0 0 3px rgba(45,108,223,.25)}
+
+    /* Personalización */
+    .grid{display:grid;gap:16px}
+    .grid.cols-2{grid-template-columns:1fr 1fr}
+    .chip{
+      display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;
+      border:1px solid var(--stroke);border-radius:12px;background:#fff;cursor:pointer;user-select:none
+    }
+    .chip[aria-pressed="true"]{border-color:#C7D2FE;background:#EEF2FF;color:#1E3A8A}
+    .segmented{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
+    .segmented button{flex:1;height:42px;padding:10px 12px;border:0;background:#fff;cursor:pointer}
+    .segmented button.active{background:var(--blue);color:#fff}
+    .switch{display:inline-flex;align-items:center;gap:10px}
+    .switch input{appearance:none;width:44px;height:26px;border-radius:999px;background:#e5e7eb;position:relative;outline:none;cursor:pointer;border:1px solid #d1d5db}
+    .switch input:checked{background:var(--blue)}
+    .switch input::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:2.5px;left:2.5px;transition:all .18s cubic-bezier(.2,.8,.2,1)}
+    .switch input:checked::after{left:21px}
+
+    /* Steps */
+    .steps{display:flex;gap:6px;margin:0 auto 12px;justify-content:center}
+    .dot{width:8px;height:8px;border-radius:999px;background:#e5e7eb}
+    .dot.active{background:var(--blue)}
+
+    /* Toast */
+    .toast{position:fixed;right:16px;bottom:16px;background:#111C2E;color:#E8EEF7;padding:10px 14px;border-radius:12px;box-shadow:var(--shadow);display:none}
+    .error{color:#b91c1c;text-align:center}
+    .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);border:0}
+
+    /* Small print agreements */
+    .agree{font-size:14px;color:#374151;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main id="card" class="card" data-view="login">
+      <h1 class="title">WikiScope</h1>
+      <div class="steps" aria-label="Progreso">
+        <div class="dot" id="dot-login"></div>
+        <div class="dot" id="dot-verify"></div>
+        <div class="dot" id="dot-prefs"></div>
+      </div>
+
+      <!-- LOGIN -->
+      <section id="view-login" class="stack" aria-live="polite">
+        <h2 class="subtitle">Inicia sesión</h2>
+        <div class="stack">
+          <div class="field">
+            <label for="login-email">Email o usuario</label>
+            <input id="login-email" type="email" autocomplete="email" placeholder="tu@correo.com" required />
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          </div>
+          <button id="btn-login" class="btn">Log in</button>
+          <div class="links">
+            <a class="link" href="#" id="link-open-signup">Crear cuenta</a>
+            <a class="link" href="#" id="link-forgot">Forgot password?</a>
+          </div>
+          <p id="login-error" class="error"></p>
+        </div>
+      </section>
+
+      <!-- SIGNUP -->
+      <section id="view-signup" class="stack" aria-live="polite" style="display:none">
+        <h2 class="subtitle">Crear cuenta</h2>
+        <div class="stack">
+          <div class="field">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" type="email" autocomplete="email" placeholder="tu@correo.com" required />
+          </div>
+          <div class="field">
+            <label for="signup-password">Password</label>
+            <div class="strength">
+              <span class="strength-label">Strength: <b id="strength-label">Weak</b></span>
+              <input id="signup-password" type="password" autocomplete="new-password" placeholder="••••••••" required oninput="updateStrength(this.value)" />
+              <div class="bar" aria-hidden="true"><span id="strength-bar"></span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="signup-confirm">Confirm password</label>
+            <input id="signup-confirm" type="password" autocomplete="new-password" placeholder="••••••••" required />
+          </div>
+
+          <label class="agree">
+            <input id="accept-terms" type="checkbox" /> Al crear una cuenta, aceptas los <a class="link" target="_blank" href="terms.html">Términos de servicio</a>.
+          </label>
+
+          <div class="row" style="justify-content:center">
+            <button id="btn-create" class="btn">Create account</button>
+            <button id="btn-cancel-signup" class="btn secondary" type="button">Cancelar</button>
+          </div>
+          <div class="center">
+            <span>¿Ya tienes una cuenta? <a class="link" href="#" id="link-back-login">Iniciar sesión</a></span>
+          </div>
+          <p id="signup-error" class="error"></p>
+        </div>
+      </section>
+
+      <!-- VERIFY -->
+      <section id="view-verify" class="stack" aria-live="polite" style="display:none">
+        <h2 class="subtitle">Código de verificación</h2>
+        <p class="muted" style="text-align:center">Introduce el código enviado a <b id="verify-email"></b></p>
+        <div class="otp" role="group" aria-labelledby="otp-label">
+          <span id="otp-label" class="sr">Código de 6 dígitos</span>
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 1">
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 2">
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 3">
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 4">
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 5">
+          <input inputmode="numeric" maxlength="1" class="otp-input" aria-label="Dígito 6">
+        </div>
+        <div class="row" style="justify-content:center">
+          <button id="btn-verify" class="btn">Verificar</button>
+          <button id="btn-resend" class="btn secondary" type="button">Reenviar código</button>
+        </div>
+        <p id="verify-error" class="error"></p>
+      </section>
+
+      <!-- PREFS -->
+      <section id="view-prefs" style="display:none">
+        <h2 class="subtitle">Personaliza tu experiencia</h2>
+        <div class="grid cols-2">
+          <div class="field">
+            <label for="username">Nombre de usuario</label>
+            <input id="username" type="text" placeholder="Nombre de usuario" />
+          </div>
+          <div class="field">
+            <label>Idioma</label>
+            <div class="segmented" role="tablist">
+              <button id="lang-es" class="active" role="tab" aria-selected="true">Español</button>
+              <button id="lang-en" role="tab" aria-selected="false">English</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Nivel</label>
+            <div class="segmented" id="level">
+              <button data-v="intro" class="active">Introductorio</button>
+              <button data-v="advanced">Avanzado</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Formato</label>
+            <div class="segmented" id="format">
+              <button data-v="tldr" class="active">TL;DR</button>
+              <button data-v="narrative">Narrativo</button>
+            </div>
+          </div>
+
+          <div class="field" style="grid-column:1 / -1">
+            <label>Enfoque</label>
+            <div class="row" style="flex-wrap:wrap">
+              <button class="chip" data-focus="apps" aria-pressed="true">Aplicaciones</button>
+              <button class="chip" data-focus="data">Datos</button>
+              <button class="chip" data-focus="bio">Biografías</button>
+              <button class="chip" data-focus="history">Historia</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="switch"><input id="show-cites" type="checkbox" checked><span>Mostrar siempre citas</span></label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:16px;justify-content:center">
+          <button id="btn-save" class="btn">Guardar y comenzar</button>
+        </div>
+        <p id="prefs-error" class="error"></p>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // ---------- Supabase config ----------
+    const SUPABASE_URL = "https://ctghtnmmiztesvajenjs.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0Z2h0bm1taXp0ZXN2YWplbmpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1Njg4MTgsImV4cCI6MjA3NDE0NDgxOH0.yyzU9gRVJAchg48JsaHsVz4rh9XwB89ISMhUqxgO3OI";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---------- Helpers ----------
+    const $ = (s)=>document.querySelector(s);
+    const $$ = (s)=>Array.from(document.querySelectorAll(s));
+    const card = $('#card');
+    const toast = (m)=>{ const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2200); };
+    const showView = (id)=>{
+      ['#view-login','#view-signup','#view-verify','#view-prefs'].forEach(sel=>$(sel).style.display='none');
+      $(id).style.display = id==='#view-prefs' ? 'block' : 'grid';
+      card.dataset.view = id==='#view-login' ? 'login' : id==='#view-signup' ? 'signup' : id==='#view-verify' ? 'verify' : 'prefs';
+      $('#dot-login').classList.toggle('active', id!=='#view-prefs');
+      $('#dot-verify').classList.toggle('active', id==='#view-verify');
+      $('#dot-prefs').classList.toggle('active', id==='#view-prefs');
+    };
+    const setLoading = (btn,on=true)=>{ btn.disabled=on; const t=btn.textContent; if(on){ btn.dataset.label=t; btn.textContent='Procesando…'; } else { btn.textContent=btn.dataset.label || t; } };
+    const mapAuthError = (e)=>{
+      const m=(e?.message||'').toLowerCase();
+      if(m.includes('invalid login')||m.includes('invalid credentials')) return 'Credenciales inválidas.';
+      if(m.includes('email rate limit')) return 'Demasiados intentos; prueba más tarde.';
+      if(m.includes('otp')) return 'Código incorrecto o expirado.';
+      return e.message || 'Error inesperado.';
+    };
+
+    // ---------- Strength meter ----------
+    function scorePassword(p){
+      let s=0;
+      if(!p) return s;
+      const letters={}; for(const c of p){ letters[c]=(letters[c]||0)+1; s+=5.0/letters[c]; }
+      const variations={digits:/\\d/.test(p), lower:/[a-z]/.test(p), upper:/[A-Z]/.test(p), nonWords:/\\W/.test(p)};
+      let variationCount=0; for(const k in variations){ variationCount+=variations[k]?1:0; } s += (variationCount-1)*10;
+      return parseInt(s);
+    }
+    function updateStrength(p){
+      const v = scorePassword(p);
+      const bar = $('#strength-bar'), lbl = $('#strength-label');
+      let pct=0, name='Weak', color='#f43f5e';
+      if(v>60){pct=100; name='Strong'; color='#16a34a';}
+      else if(v>40){pct=66; name='Medium'; color='#f59e0b';}
+      else if(v>20){pct=33; name='Fair'; color='#f59e0b';}
+      else {pct=15; name='Weak'; color='#f43f5e';}
+      bar.style.width=pct+'%'; bar.style.background=color; lbl.textContent=name;
+    }
+
+    // ---------- State ----------
+    let signupEmail='';
+
+    // ---------- Login ----------
+    $('#btn-login').addEventListener('click', async()=>{
+      const email=$('#login-email').value.trim();
+      const password=$('#login-password').value;
+      $('#login-error').textContent='';
+      if(!email || !password){ $('#login-error').textContent='Completa email y contraseña.'; return; }
+      setLoading($('#btn-login'), true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading($('#btn-login'), false);
+      if(error){ $('#login-error').textContent=mapAuthError(error); return; }
+      toast('Sesión iniciada');
+      showView('#view-prefs');
+    });
+
+    // ---------- Switch to signup / back ----------
+    $('#link-open-signup').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-signup'); });
+    $('#btn-cancel-signup').addEventListener('click', ()=>showView('#view-login'));
+    $('#link-back-login').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-login'); });
+
+    // ---------- Forgot password ----------
+    $('#link-forgot').addEventListener('click', async (e)=>{
+      e.preventDefault();
+      const email=$('#login-email').value.trim();
+      if(!email){ toast('Escribe tu email arriba'); return; }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: location.origin + '/#password-reset'
+      });
+      if(error){ toast('Error al solicitar recuperación'); return; }
+      toast('Revisa tu correo para recuperar contraseña');
+    });
+
+    // ---------- Create account ----------
+    $('#btn-create').addEventListener('click', async()=>{
+      const email=$('#signup-email').value.trim();
+      const password=$('#signup-password').value;
+      const confirm=$('#signup-confirm').value;
+      const accepted=$('#accept-terms').checked;
+      $('#signup-error').textContent='';
+      if(!email || !password || !confirm){ $('#signup-error').textContent='Completa todos los campos.'; return; }
+      if(password!==confirm){ $('#signup-error').textContent='Las contraseñas no coinciden.'; return; }
+      if(!accepted){ $('#signup-error').textContent='Debes aceptar los Términos de servicio.'; return; }
+      setLoading($('#btn-create'), true);
+      const { error } = await supabase.auth.signUp({ email, password });
+      setLoading($('#btn-create'), false);
+      if(error){ $('#signup-error').textContent=mapAuthError(error); return; }
+      signupEmail=email;
+      $('#verify-email').textContent=email;
+      toast('Te enviamos un código al correo');
+      showView('#view-verify');
+      focusFirstOtp();
+    });
+
+    // ---------- OTP controls ----------
+    const otpInputs = $$('.otp-input');
+    otpInputs.forEach((input, idx)=>{
+      input.addEventListener('input', (e)=>{
+        e.target.value = e.target.value.replace(/\\D/g,'').slice(0,1);
+        if(e.target.value && idx<otpInputs.length-1) otpInputs[idx+1].focus();
+      });
+      input.addEventListener('keydown', (e)=>{
+        if(e.key==='Backspace' && !e.target.value && idx>0) otpInputs[idx-1].focus();
+      });
+    });
+    function focusFirstOtp(){ otpInputs[0].focus(); }
+    const getOtp = ()=> otpInputs.map(i=>i.value).join('');
+
+    // ---------- Verify OTP ----------
+    $('#btn-verify').addEventListener('click', async()=>{
+      const token=getOtp();
+      const email= signupEmail || $('#signup-email').value.trim();
+      $('#verify-error').textContent='';
+      if(token.length<6){ $('#verify-error').textContent='Código incompleto.'; return; }
+      if(!email){ $('#verify-error').textContent='Falta el email utilizado en el registro.'; return; }
+      setLoading($('#btn-verify'), true);
+      const { error } = await supabase.auth.verifyOtp({ email, token, type:'signup' });
+      setLoading($('#btn-verify'), false);
+      if(error){ $('#verify-error').textContent=mapAuthError(error); return; }
+      toast('Correo verificado');
+      showView('#view-prefs');
+    });
+
+    // ---------- Resend code ----------
+    $('#btn-resend').addEventListener('click', async()=>{
+      const email= signupEmail || $('#signup-email').value.trim();
+      if(!email){ toast('Escribe tu email en Crear cuenta'); return; }
+      const { error } = await supabase.auth.resend({ type:'signup', email });
+      if(error){ toast('No se pudo reenviar'); return; }
+      toast('Código reenviado');
+      focusFirstOtp();
+    });
+
+    // ---------- Prefs interactions ----------
+    $$('.segmented').forEach(seg=>{
+      seg.addEventListener('click', (e)=>{
+        if(e.target.tagName!=='BUTTON') return;
+        seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        e.target.classList.add('active');
+      });
+    });
+    $$('.chip').forEach(ch=>{
+      ch.addEventListener('click', ()=>{
+        const pressed = ch.getAttribute('aria-pressed') === 'true';
+        ch.setAttribute('aria-pressed', String(!pressed));
+      });
+    });
+
+    // ---------- Save prefs ----------
+    $('#btn-save').addEventListener('click', async()=>{
+      const prefs = collectPrefs();
+      localStorage.setItem('wikiscope:prefs', JSON.stringify(prefs));
+      try{
+        const { data:{ user } } = await supabase.auth.getUser();
+        if(user){
+          await supabase.from('profiles').upsert({
+            id:user.id, username:prefs.username, lang:prefs.lang,
+            level:prefs.level, format:prefs.format, focus:prefs.focus,
+            show_cites:prefs.show_cites
+          });
+        }
+      }catch(_e){ /* silenciar en prototipo */ }
+      toast('Preferencias guardadas');
+    });
+
+    function collectPrefs(){
+      const username=$('#username').value.trim();
+      const lang = $('#lang-es').classList.contains('active') ? 'es' : 'en';
+      const level = document.querySelector('#level .active')?.dataset.v || 'intro';
+      const format = document.querySelector('#format .active')?.dataset.v || 'tldr';
+      const focus = $$('.chip[aria-pressed="true"]').map(b=>b.dataset.focus);
+      const show_cites = $('#show-cites').checked;
+      return { username, lang, level, format, focus, show_cites };
+    }
+
+    // ---------- Initial view ----------
+    showView('#view-login');
+  </script>
+</body>
+</html>
