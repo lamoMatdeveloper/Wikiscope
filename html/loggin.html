@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -93,7 +93,12 @@
 <body>
   <div class="wrap">
     <main id="card" class="card" data-view="login">
-      <h1 class="title">WikiScope</h1>
+      <div class="logo-wrap">
+        <img src="../Documentos/Imágenes/WikiScope_logo.png" alt="Logo WikiScope">
+        <h1 class="title">WikiScope</h1>
+        <p class="tagline">Exploración personalizada con IA citada</p>
+      </div>
+      <div id="config-warning" class="config-warning" role="alert" style="display:none"></div>
       <div class="steps" aria-label="Progreso">
         <div class="dot" id="dot-login"></div>
         <div class="dot" id="dot-verify"></div>
@@ -112,10 +117,10 @@
             <label for="login-password">Password</label>
             <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
           </div>
-          <button id="btn-login" class="btn">Log in</button>
+          <button id="btn-login" class="btn">Iniciar sesión</button>
           <div class="links">
             <a class="link" href="#" id="link-open-signup">Crear cuenta</a>
-            <a class="link" href="#" id="link-forgot">Forgot password?</a>
+            <a class="link" href="#" id="link-forgot">¿Olvidaste tu contraseña?</a>
           </div>
           <p id="login-error" class="error"></p>
         </div>
@@ -132,13 +137,13 @@
           <div class="field">
             <label for="signup-password">Password</label>
             <div class="strength">
-              <span class="strength-label">Strength: <b id="strength-label">Weak</b></span>
+              <span class="strength-label">Seguridad: <b id="strength-label">Débil</b></span>
               <input id="signup-password" type="password" autocomplete="new-password" placeholder="••••••••" required oninput="updateStrength(this.value)" />
               <div class="bar" aria-hidden="true"><span id="strength-bar"></span></div>
             </div>
           </div>
           <div class="field">
-            <label for="signup-confirm">Confirm password</label>
+            <label for="signup-confirm">Confirmar contraseña</label>
             <input id="signup-confirm" type="password" autocomplete="new-password" placeholder="••••••••" required />
           </div>
 
@@ -147,7 +152,7 @@
           </label>
 
           <div class="row" style="justify-content:center">
-            <button id="btn-create" class="btn">Create account</button>
+            <button id="btn-create" class="btn">Crear cuenta</button>
             <button id="btn-cancel-signup" class="btn secondary" type="button">Cancelar</button>
           </div>
           <div class="center">
@@ -189,7 +194,7 @@
             <label>Idioma</label>
             <div class="segmented" role="tablist">
               <button id="lang-es" class="active" role="tab" aria-selected="true">Español</button>
-              <button id="lang-en" role="tab" aria-selected="false">English</button>
+              <button id="lang-en" role="tab" aria-selected="false">Inglés</button>
             </div>
           </div>
 
@@ -235,15 +240,14 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    // ---------- Supabase config ----------
-    const SUPABASE_URL = "https://ctghtnmmiztesvajenjs.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0Z2h0bm1taXp0ZXN2YWplbmpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1Njg4MTgsImV4cCI6MjA3NDE0NDgxOH0.yyzU9gRVJAchg48JsaHsVz4rh9XwB89ISMhUqxgO3OI";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const VAULT_PATH = '../Documentos/personal/vault.ink';
+    const STORAGE_KEY = 'wikiscope:prefs';
 
-    // ---------- Helpers ----------
     const $ = (s)=>document.querySelector(s);
     const $$ = (s)=>Array.from(document.querySelectorAll(s));
     const card = $('#card');
+    const state = { supabase:null, signupEmail:'' };
+
     const toast = (m)=>{ const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2200); };
     const showView = (id)=>{
       ['#view-login','#view-signup','#view-verify','#view-prefs'].forEach(sel=>$(sel).style.display='none');
@@ -258,66 +262,110 @@
       const m=(e?.message||'').toLowerCase();
       if(m.includes('invalid login')||m.includes('invalid credentials')) return 'Credenciales inválidas.';
       if(m.includes('email rate limit')) return 'Demasiados intentos; prueba más tarde.';
-      if(m.includes('otp')) return 'Código incorrecto o expirado.';
-      return e.message || 'Error inesperado.';
+      if(m.includes('password')) return 'La contraseña no cumple los requisitos.';
+      if(m.includes('otp')) return 'Código inválido o expirado.';
+      return 'Algo salió mal. Intenta nuevamente.';
     };
 
-    // ---------- Strength meter ----------
-    function scorePassword(p){
-      let s=0;
-      if(!p) return s;
-      const letters={}; for(const c of p){ letters[c]=(letters[c]||0)+1; s+=5.0/letters[c]; }
-      const variations={digits:/\\d/.test(p), lower:/[a-z]/.test(p), upper:/[A-Z]/.test(p), nonWords:/\\W/.test(p)};
-      let variationCount=0; for(const k in variations){ variationCount+=variations[k]?1:0; } s += (variationCount-1)*10;
-      return parseInt(s);
-    }
-    function updateStrength(p){
-      const v = scorePassword(p);
-      const bar = $('#strength-bar'), lbl = $('#strength-label');
-      let pct=0, name='Weak', color='#f43f5e';
-      if(v>60){pct=100; name='Strong'; color='#16a34a';}
-      else if(v>40){pct=66; name='Medium'; color='#f59e0b';}
-      else if(v>20){pct=33; name='Fair'; color='#f59e0b';}
-      else {pct=15; name='Weak'; color='#f43f5e';}
-      bar.style.width=pct+'%'; bar.style.background=color; lbl.textContent=name;
+    init();
+
+    async function init(){
+      showView('#view-login');
+      try{
+        const config = await loadVault();
+        const supa = config?.supabase || {};
+        if(!supa.url || !supa.anonKey){
+          showConfigWarning('Completa supabase.url y supabase.anonKey en Documentos/personal/vault.ink');
+          disableInteractions();
+          return;
+        }
+        state.supabase = window.supabase.createClient(supa.url, supa.anonKey);
+        registerHandlers();
+        $('#config-warning').style.display='none';
+      }catch(err){
+        console.error('Error cargando vault.ink', err);
+        showConfigWarning('No se pudo cargar vault.ink. Revisa el archivo y recarga.');
+        disableInteractions();
+      }
     }
 
-    // ---------- State ----------
-    let signupEmail='';
+    function registerHandlers(){
+      $('#btn-login').addEventListener('click', onLogin);
+      $('#link-open-signup').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-signup'); });
+      $('#btn-cancel-signup').addEventListener('click', ()=>showView('#view-login'));
+      $('#link-back-login').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-login'); });
+      $('#link-forgot').addEventListener('click', onForgotPassword);
+      $('#btn-create').addEventListener('click', onSignup);
+      $('#btn-verify').addEventListener('click', onVerifyOtp);
+      $('#btn-resend').addEventListener('click', resendOtp);
+      $('#btn-save').addEventListener('click', savePrefs);
 
-    // ---------- Login ----------
-    $('#btn-login').addEventListener('click', async()=>{
+      const otpInputs = $$('.otp-input');
+      otpInputs.forEach((input, idx)=>{
+        input.addEventListener('input', (e)=>{
+          e.target.value = e.target.value.replace(/\D/g,'').slice(0,1);
+          if(e.target.value && idx<otpInputs.length-1) otpInputs[idx+1].focus();
+        });
+        input.addEventListener('keydown', (e)=>{
+          if(e.key==='Backspace' && !e.target.value && idx>0) otpInputs[idx-1].focus();
+        });
+      });
+
+      $$('.segmented').forEach(seg=>{
+        seg.addEventListener('click', (e)=>{
+          if(e.target.tagName!=='BUTTON') return;
+          seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+          e.target.classList.add('active');
+        });
+      });
+      $$('.chip').forEach(ch=>{
+        ch.addEventListener('click', ()=>{
+          const pressed = ch.getAttribute('aria-pressed') === 'true';
+          ch.setAttribute('aria-pressed', String(!pressed));
+        });
+      });
+    }
+
+    async function loadVault(){
+      const res = await fetch(VAULT_PATH, { cache:'no-store' });
+      if(!res.ok) throw new Error('Vault no accesible');
+      const text = (await res.text()).trim();
+      return text ? JSON.parse(text) : {};
+    }
+
+    function showConfigWarning(message){
+      const alert = $('#config-warning');
+      alert.textContent = message;
+      alert.style.display = 'block';
+    }
+
+    function disableInteractions(){
+      $$('.btn').forEach(btn=>btn.disabled=true);
+    }
+
+    async function onLogin(){
       const email=$('#login-email').value.trim();
       const password=$('#login-password').value;
       $('#login-error').textContent='';
       if(!email || !password){ $('#login-error').textContent='Completa email y contraseña.'; return; }
       setLoading($('#btn-login'), true);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
       setLoading($('#btn-login'), false);
       if(error){ $('#login-error').textContent=mapAuthError(error); return; }
       toast('Sesión iniciada');
       showView('#view-prefs');
-    });
+    }
 
-    // ---------- Switch to signup / back ----------
-    $('#link-open-signup').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-signup'); });
-    $('#btn-cancel-signup').addEventListener('click', ()=>showView('#view-login'));
-    $('#link-back-login').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-login'); });
-
-    // ---------- Forgot password ----------
-    $('#link-forgot').addEventListener('click', async (e)=>{
+    async function onForgotPassword(e){
       e.preventDefault();
       const email=$('#login-email').value.trim();
       if(!email){ toast('Escribe tu email arriba'); return; }
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: location.origin + '/#password-reset'
-      });
+      const { error } = await state.supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/#password-reset' });
       if(error){ toast('Error al solicitar recuperación'); return; }
       toast('Revisa tu correo para recuperar contraseña');
-    });
+    }
 
-    // ---------- Create account ----------
-    $('#btn-create').addEventListener('click', async()=>{
+    async function onSignup(){
       const email=$('#signup-email').value.trim();
       const password=$('#signup-password').value;
       const confirm=$('#signup-confirm').value;
@@ -327,86 +375,44 @@
       if(password!==confirm){ $('#signup-error').textContent='Las contraseñas no coinciden.'; return; }
       if(!accepted){ $('#signup-error').textContent='Debes aceptar los Términos de servicio.'; return; }
       setLoading($('#btn-create'), true);
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await state.supabase.auth.signUp({ email, password });
       setLoading($('#btn-create'), false);
       if(error){ $('#signup-error').textContent=mapAuthError(error); return; }
-      signupEmail=email;
+      state.signupEmail=email;
       $('#verify-email').textContent=email;
       toast('Te enviamos un código al correo');
       showView('#view-verify');
       focusFirstOtp();
-    });
+    }
 
-    // ---------- OTP controls ----------
-    const otpInputs = $$('.otp-input');
-    otpInputs.forEach((input, idx)=>{
-      input.addEventListener('input', (e)=>{
-        e.target.value = e.target.value.replace(/\\D/g,'').slice(0,1);
-        if(e.target.value && idx<otpInputs.length-1) otpInputs[idx+1].focus();
-      });
-      input.addEventListener('keydown', (e)=>{
-        if(e.key==='Backspace' && !e.target.value && idx>0) otpInputs[idx-1].focus();
-      });
-    });
-    function focusFirstOtp(){ otpInputs[0].focus(); }
-    const getOtp = ()=> otpInputs.map(i=>i.value).join('');
+    function focusFirstOtp(){
+      document.querySelector('.otp-input')?.focus();
+    }
 
-    // ---------- Verify OTP ----------
-    $('#btn-verify').addEventListener('click', async()=>{
+    const getOtp = ()=> $$('.otp-input').map(i=>i.value).join('');
+
+    async function onVerifyOtp(){
       const token=getOtp();
-      const email= signupEmail || $('#signup-email').value.trim();
+      const email= state.signupEmail || $('#signup-email').value.trim();
       $('#verify-error').textContent='';
       if(token.length<6){ $('#verify-error').textContent='Código incompleto.'; return; }
       if(!email){ $('#verify-error').textContent='Falta el email utilizado en el registro.'; return; }
       setLoading($('#btn-verify'), true);
-      const { error } = await supabase.auth.verifyOtp({ email, token, type:'signup' });
+      const { error } = await state.supabase.auth.verifyOtp({ email, token, type:'signup' });
       setLoading($('#btn-verify'), false);
       if(error){ $('#verify-error').textContent=mapAuthError(error); return; }
       toast('Correo verificado');
       showView('#view-prefs');
-    });
+    }
 
-    // ---------- Resend code ----------
-    $('#btn-resend').addEventListener('click', async()=>{
-      const email= signupEmail || $('#signup-email').value.trim();
+    async function resendOtp(){
+      const email= state.signupEmail || $('#signup-email').value.trim();
       if(!email){ toast('Escribe tu email en Crear cuenta'); return; }
-      const { error } = await supabase.auth.resend({ type:'signup', email });
+      const { error } = await state.supabase.auth.resend({ type:'signup', email });
       if(error){ toast('No se pudo reenviar'); return; }
       toast('Código reenviado');
       focusFirstOtp();
-    });
-
-    // ---------- Prefs interactions ----------
-    $$('.segmented').forEach(seg=>{
-      seg.addEventListener('click', (e)=>{
-        if(e.target.tagName!=='BUTTON') return;
-        seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-        e.target.classList.add('active');
-      });
-    });
-    $$('.chip').forEach(ch=>{
-      ch.addEventListener('click', ()=>{
-        const pressed = ch.getAttribute('aria-pressed') === 'true';
-        ch.setAttribute('aria-pressed', String(!pressed));
-      });
-    });
-
-    // ---------- Save prefs ----------
-    $('#btn-save').addEventListener('click', async()=>{
-      const prefs = collectPrefs();
-      localStorage.setItem('wikiscope:prefs', JSON.stringify(prefs));
-      try{
-        const { data:{ user } } = await supabase.auth.getUser();
-        if(user){
-          await supabase.from('profiles').upsert({
-            id:user.id, username:prefs.username, lang:prefs.lang,
-            level:prefs.level, format:prefs.format, focus:prefs.focus,
-            show_cites:prefs.show_cites
-          });
-        }
-      }catch(_e){ /* silenciar en prototipo */ }
-      toast('Preferencias guardadas');
-    });
+    }
 
     function collectPrefs(){
       const username=$('#username').value.trim();
@@ -418,8 +424,43 @@
       return { username, lang, level, format, focus, show_cites };
     }
 
-    // ---------- Initial view ----------
-    showView('#view-login');
+    async function savePrefs(){
+      const prefs = collectPrefs();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+      try{
+        const { data:{ user } } = await state.supabase.auth.getUser();
+        if(user){
+          await state.supabase.from('profiles').upsert({
+            id:user.id, username:prefs.username, lang:prefs.lang,
+            level:prefs.level, format:prefs.format, focus:prefs.focus,
+            show_cites:prefs.show_cites
+          });
+        }
+      }catch(_e){ /* silencioso en prototipo */ }
+      toast('Preferencias guardadas');
+      window.location.href = 'home.html';
+    }
+
+    function scorePassword(p){
+      let s=0;
+      if(!p) return s;
+      const letters={}; for(const c of p){ letters[c]=(letters[c]||0)+1; s+=5.0/letters[c]; }
+      const variations={digits:/\d/.test(p), lower:/[a-z]/.test(p), upper:/[A-Z]/.test(p), nonWords:/\W/.test(p)};
+      let variationCount=0; for(const k in variations){ variationCount+=variations[k]?1:0; } s += (variationCount-1)*10;
+      return parseInt(s);
+    }
+
+    function updateStrength(p){
+      const v = scorePassword(p);
+      const bar = $('#strength-bar'), lbl = $('#strength-label');
+      let pct=0, name='Débil', color='#f43f5e';
+      if(v>60){pct=100; name='Fuerte'; color='#16a34a';}
+      else if(v>40){pct=66; name='Media'; color='#f59e0b';}
+      else if(v>20){pct=33; name='Aceptable'; color='#f59e0b';}
+      else {pct=15; name='Débil'; color='#f43f5e';}
+      bar.style.width=pct+'%'; bar.style.background=color; lbl.textContent=name;
+    }
   </script>
+
 </body>
 </html>

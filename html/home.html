@@ -1,0 +1,459 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="icon" href="../Documentos/Imágenes/WikiScope_logo.png" type="image/png">
+  <title>WikiScope — Panel personal</title>
+  <style>
+    :root{
+      --bg:#f6f7f9; --sidebar:#ffffff; --border:#e5e7eb; --shadow:0 10px 30px rgba(15,23,42,.06);
+      --text:#1f2937; --muted:#6b7280; --accent:#2563eb; --accent-soft:#eef2ff; --card:#ffffff;
+      --radius:18px; --radius-sm:12px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+    .app{display:grid;grid-template-columns:260px 1fr;width:100%;min-height:100vh}
+    aside{background:var(--sidebar);padding:28px 22px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:24px}
+    .brand{display:flex;align-items:center;gap:12px;font-size:24px;font-weight:700;letter-spacing:-.01em}
+    .brand img{width:42px;height:42px}
+    nav{display:flex;flex-direction:column;gap:10px}
+    nav a{padding:12px 14px;border-radius:var(--radius-sm);color:var(--muted);text-decoration:none;font-weight:600;display:flex;align-items:center;gap:10px}
+    nav a.active{background:var(--accent-soft);color:var(--accent)}
+    nav a:hover{background:#f3f4f6;color:var(--text)}
+    .nav-footer{margin-top:auto;display:grid;gap:12px}
+    .btn-ghost{border:1px solid var(--border);background:#fff;border-radius:var(--radius-sm);padding:10px 14px;font-weight:600;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:8px}
+    .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+    main{padding:32px 36px 48px;display:flex;flex-direction:column;gap:24px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .search{flex:1;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow)}
+    .search input{border:0;outline:none;width:100%;font-size:16px;color:var(--text)}
+    .search button{background:var(--accent);color:#fff;border:0;border-radius:var(--radius-sm);padding:10px 18px;font-weight:600;cursor:pointer}
+    .search button:disabled{opacity:.6;cursor:not-allowed}
+    .persona-chip{display:flex;flex-direction:column;min-width:210px;background:#fff;border-radius:var(--radius);padding:14px 18px;border:1px solid var(--border);box-shadow:var(--shadow)}
+    .persona-chip span{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+    .persona-chip strong{font-size:16px;font-weight:700;margin-top:6px}
+
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
+    .column{display:grid;gap:20px;align-content:start}
+    .card{background:var(--card);border-radius:var(--radius);padding:22px 24px;border:1px solid var(--border);box-shadow:var(--shadow)}
+    .card h2{margin:0 0 12px;font-size:24px;font-weight:700;letter-spacing:-.01em}
+    .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .card-header h2{margin:0}
+    .muted{color:var(--muted)}
+    .highlight{background:var(--accent-soft);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+    .tldr-list{padding-left:20px;margin:0 0 12px;display:grid;gap:8px}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:#f9fafb;border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+
+    .persona-form{display:grid;gap:16px}
+    .persona-fields{display:grid;gap:14px}
+    .persona-fields label{font-size:14px;font-weight:600;color:#374151}
+    .persona-fields input[type="text"],
+    .persona-fields select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:15px}
+    .chip-list{display:flex;gap:10px;flex-wrap:wrap}
+    .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-weight:600;color:var(--muted);cursor:pointer}
+    .chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+    .toggle{display:flex;align-items:center;gap:10px}
+    .toggle input{width:44px;height:24px;border-radius:999px;appearance:none;background:#e5e7eb;position:relative;outline:none;cursor:pointer;transition:.2s}
+    .toggle input::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
+    .toggle input:checked{background:var(--accent)}
+    .toggle input:checked::after{left:22px}
+    .actions{display:flex;justify-content:flex-end;gap:12px}
+    .btn-primary{background:var(--accent);color:#fff;border:0;padding:10px 18px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer}
+
+    .modules{display:grid;gap:14px}
+    .module{border-radius:var(--radius-sm);border:1px solid var(--border);padding:12px 14px;background:#f8fafc}
+    .module strong{display:block;font-size:14px}
+    .module span{color:var(--muted);font-size:13px}
+
+    .chat{display:flex;flex-direction:column;gap:14px}
+    .chat-log{display:grid;gap:12px;max-height:380px;overflow:auto;padding-right:4px}
+    .message{border-radius:var(--radius-sm);padding:12px 14px;font-size:15px;line-height:1.4;border:1px solid var(--border)}
+    .message.user{background:#eff6ff;border-color:#bfdbfe}
+    .message.assistant{background:#f9fafb}
+    .timestamp{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+    .chat textarea{width:100%;min-height:90px;border-radius:var(--radius-sm);border:1px solid var(--border);padding:12px;font-family:inherit;font-size:15px}
+    .chat button{align-self:flex-end}
+
+    footer{margin-top:12px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    footer a{color:var(--muted);text-decoration:none}
+    footer a:hover{text-decoration:underline}
+
+    @media(max-width:1080px){
+      .app{grid-template-columns:1fr}
+      aside{display:none}
+      main{padding:24px}
+      .grid{grid-template-columns:1fr}
+      .persona-chip{display:none}
+    }
+    @media(max-width:640px){
+      .search{flex-direction:column;align-items:stretch}
+      .search button{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <aside>
+      <div class="brand">
+        <img src="../Documentos/Imágenes/WikiScope_logo.png" alt="Logo de WikiScope" />
+        <span>WikiScope</span>
+      </div>
+      <nav>
+        <a class="active" href="home.html">Inicio</a>
+        <a href="#colecciones">Colecciones</a>
+        <a href="#explorar">Explorar temas</a>
+        <a href="#ajustes">Ajustes</a>
+      </nav>
+      <div class="nav-footer">
+        <button id="btn-sync" class="btn-ghost" type="button">Sincronizar con servidor</button>
+        <button id="btn-logout" class="btn-ghost" type="button">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <form id="search-form" class="search" autocomplete="off">
+          <input id="search-query" type="search" placeholder="Busca cualquier tema para investigar..." />
+          <button id="search-btn" type="submit" disabled>Pronto</button>
+        </form>
+        <div class="persona-chip">
+          <span>Perfil activo</span>
+          <strong id="persona-summary">Cargando preferencias…</strong>
+        </div>
+      </header>
+
+      <div class="grid">
+        <section class="column">
+          <article class="card" id="briefing-card">
+            <div class="card-header">
+              <h2>TL;DR personalizado</h2>
+              <span class="highlight" id="briefing-status">Configurar búsqueda</span>
+            </div>
+            <p class="muted" id="briefing-intro">Configura tu perfil y lanza una búsqueda para generar un briefing con citas verificables.</p>
+            <ul class="tldr-list" id="tldr-list">
+              <li class="muted">• Resultados aparecerán aquí una vez se integre la API de Wikipedia.</li>
+            </ul>
+            <div class="pill">Citas verificadas pendientes ⚙️</div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h2>Ajusta tu experiencia</h2>
+              <span class="muted">Se guarda al instante</span>
+            </div>
+            <form id="persona-form" class="persona-form" autocomplete="off">
+              <div class="persona-fields">
+                <label for="pref-name">Nombre de usuario</label>
+                <input id="pref-name" type="text" placeholder="Ej. Ana Investigadora" />
+              </div>
+              <div class="persona-fields">
+                <label for="pref-lang">Idioma preferido</label>
+                <select id="pref-lang">
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <div class="persona-fields">
+                <label for="pref-level">Profundidad deseada</label>
+                <select id="pref-level">
+                  <option value="intro">Introductorio</option>
+                  <option value="advanced">Avanzado</option>
+                </select>
+              </div>
+              <div class="persona-fields">
+                <label for="pref-format">Formato de resumen</label>
+                <select id="pref-format">
+                  <option value="tldr">TL;DR citado</option>
+                  <option value="narrative">Narrativa continua</option>
+                </select>
+              </div>
+              <div class="persona-fields">
+                <label>Enfoques prioritarios</label>
+                <div class="chip-list" id="pref-focus">
+                  <button type="button" class="chip" data-value="apps">Aplicaciones</button>
+                  <button type="button" class="chip" data-value="data">Datos</button>
+                  <button type="button" class="chip" data-value="bio">Biografías</button>
+                  <button type="button" class="chip" data-value="history">Historia</button>
+                </div>
+              </div>
+              <div class="persona-fields">
+                <label class="toggle">
+                  <input id="pref-cites" type="checkbox" />
+                  <span>Mostrar siempre citas</span>
+                </label>
+              </div>
+            </form>
+            <div class="actions">
+              <button id="btn-reset" class="btn-ghost" type="button">Revertir cambios</button>
+              <button id="btn-save" class="btn-primary" type="button">Guardar preferencias</button>
+            </div>
+          </article>
+        </section>
+
+        <aside class="column">
+          <article class="card modules">
+            <h2>Herramientas</h2>
+            <div class="module"><strong>Summarizer</strong><span>Genera resúmenes concisos citados.</span></div>
+            <div class="module"><strong>Graph Explorer</strong><span>Visualiza relaciones entre artículos.</span></div>
+            <div class="module"><strong>Persona Tuner</strong><span>Ajusta peso de tópicos y profundidad.</span></div>
+            <div class="module"><strong>Evidence Checker</strong><span>Verifica citas antes de compartir.</span></div>
+          </article>
+
+          <article class="card chat">
+            <div class="card-header">
+              <h2>Agente investigador</h2>
+              <span class="muted" id="chat-status">Esperando mensaje</span>
+            </div>
+            <div id="chat-log" class="chat-log" aria-live="polite"></div>
+            <form id="chat-form" class="chat" autocomplete="off">
+              <textarea id="chat-input" placeholder="Pregunta algo al agente (ej. hazme un briefing sobre CRISPR)..."></textarea>
+              <button id="chat-send" class="btn-primary" type="submit">Enviar</button>
+            </form>
+          </article>
+        </aside>
+      </div>
+
+      <footer>
+        <span>Contenido generado bajo CC BY-SA 4.0 con atribución a Wikipedia cuando corresponda.</span>
+        <span>
+          <a href="https://www.wikipedia.org" target="_blank" rel="noopener">Wikipedia</a> ·
+          <a href="#historial">Historial de ediciones</a>
+        </span>
+      </footer>
+    </main>
+  </div>
+
+  <template id="message-template">
+    <div class="message">
+      <div class="content"></div>
+      <span class="timestamp"></span>
+    </div>
+  </template>
+
+  <script>
+    const STORAGE_KEY = 'wikiscope:prefs';
+    const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
+    const VAULT_PATH = '../Documentos/personal/vault.ink';
+
+    const state = {
+      prefs: {
+        username: '',
+        lang: 'es',
+        level: 'intro',
+        format: 'tldr',
+        focus: ['apps'],
+        show_cites: true
+      },
+      config: null,
+      systemPrompt: '',
+      conversation: []
+    };
+
+    const $ = (sel)=>document.querySelector(sel);
+    const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
+
+    init();
+
+    async function init(){
+      try{
+        state.config = await loadVault();
+      }catch(err){
+        console.warn('No se pudo cargar vault.ink', err);
+      }
+      try{
+        state.systemPrompt = await fetchText(SYSTEM_PROMPT_PATH);
+      }catch(err){
+        console.warn('No se pudo cargar el prompt', err);
+      }
+      const stored = loadPrefs();
+      state.prefs = Object.assign({}, state.prefs, stored);
+      if(!stored){
+        window.location.href = 'loggin.html';
+        return;
+      }
+      renderPrefs();
+      bindEvents();
+      updatePersonaSummary();
+      appendAssistant('Listo para investigar. Cuéntame qué tema quieres explorar.');
+    }
+
+    async function loadVault(){
+      const res = await fetch(VAULT_PATH, { cache: 'no-store' });
+      if(!res.ok) throw new Error('Vault no accesible');
+      const text = (await res.text()).trim();
+      if(!text) return null;
+      try{return JSON.parse(text);}catch(err){
+        console.error('vault.ink no es JSON válido');
+        return null;
+      }
+    }
+
+    async function fetchText(path){
+      const res = await fetch(path, { cache: 'no-store' });
+      if(!res.ok) throw new Error('No se pudo cargar ' + path);
+      return await res.text();
+    }
+
+    function loadPrefs(){
+      try{
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+      }catch(_){ return null; }
+    }
+
+    function renderPrefs(){
+      $('#pref-name').value = state.prefs?.username || '';
+      $('#pref-lang').value = state.prefs?.lang || 'es';
+      $('#pref-level').value = state.prefs?.level || 'intro';
+      $('#pref-format').value = state.prefs?.format || 'tldr';
+      $('#pref-cites').checked = state.prefs?.show_cites ?? true;
+      const focusSet = new Set(state.prefs?.focus || []);
+      $$('#pref-focus .chip').forEach(ch=>{
+        ch.setAttribute('aria-pressed', focusSet.has(ch.dataset.value) ? 'true' : 'false');
+      });
+    }
+
+    function bindEvents(){
+      $('#btn-save').addEventListener('click', savePrefs);
+      $('#btn-reset').addEventListener('click', ()=>{
+        state.prefs = loadPrefs() || state.prefs;
+        renderPrefs();
+        updatePersonaSummary();
+      });
+      $('#persona-form').addEventListener('change', handleFormChange);
+      $('#pref-name').addEventListener('input', handleFormChange);
+      $$('#pref-focus .chip').forEach(ch=>{
+        ch.addEventListener('click', ()=>{
+          const pressed = ch.getAttribute('aria-pressed') === 'true';
+          ch.setAttribute('aria-pressed', String(!pressed));
+          handleFormChange();
+        });
+      });
+      $('#btn-logout').addEventListener('click', ()=>{
+        localStorage.removeItem(STORAGE_KEY);
+        window.location.href = 'loggin.html';
+      });
+      $('#btn-sync').addEventListener('click', ()=>{
+        alert('Sincronización con backend pendiente de implementación.');
+      });
+      $('#chat-form').addEventListener('submit', async (event)=>{
+        event.preventDefault();
+        const input = $('#chat-input');
+        const text = input.value.trim();
+        if(!text) return;
+        input.value = '';
+        appendUser(text);
+        await sendToAgent(text);
+      });
+    }
+
+    function handleFormChange(){
+      const focus = $$('#pref-focus .chip[aria-pressed="true"]').map(b=>b.dataset.value);
+      state.prefs = {
+        username: $('#pref-name').value.trim(),
+        lang: $('#pref-lang').value,
+        level: $('#pref-level').value,
+        format: $('#pref-format').value,
+        focus,
+        show_cites: $('#pref-cites').checked
+      };
+      updatePersonaSummary();
+    }
+
+    function savePrefs(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.prefs));
+      updatePersonaSummary('Preferencias guardadas');
+    }
+
+    function updatePersonaSummary(status){
+      const focus = state.prefs.focus?.length ? state.prefs.focus.join(', ') : 'sin enfoque específico';
+      const label = `${state.prefs.username || 'Investigador/a'} · ${state.prefs.lang === 'en' ? 'Inglés' : 'Español'} · ${state.prefs.level === 'advanced' ? 'Avanzado' : 'Intro'} · ${focus}`;
+      $('#persona-summary').textContent = label;
+      if(status){
+        $('#briefing-status').textContent = status;
+        setTimeout(()=>$('#briefing-status').textContent='Configurar búsqueda', 2400);
+      }
+    }
+
+    function appendUser(content){
+      state.conversation.push({ role:'user', content, createdAt:Date.now() });
+      renderConversation();
+    }
+
+    function appendAssistant(content){
+      state.conversation.push({ role:'assistant', content, createdAt:Date.now() });
+      renderConversation();
+    }
+
+    function renderConversation(){
+      const log = $('#chat-log');
+      log.innerHTML = '';
+      const template = document.getElementById('message-template');
+      state.conversation.forEach(msg=>{
+        if(msg.role === 'system') return;
+        const node = template.content.firstElementChild.cloneNode(true);
+        node.classList.add(msg.role);
+        node.querySelector('.content').textContent = msg.content;
+        node.querySelector('.timestamp').textContent = new Date(msg.createdAt).toLocaleTimeString();
+        log.appendChild(node);
+      });
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function sendToAgent(latestUserMessage){
+      const button = $('#chat-send');
+      button.disabled = true;
+      $('#chat-status').textContent = 'Consultando agente…';
+      try{
+        if(!state.config?.deepseek?.proxyUrl){
+          throw new Error('Configura un proxy seguro de DeepSeek en Documentos/personal/vault.ink');
+        }
+        const payload = {
+          model: state.config.deepseek.model || 'deepseek-chat',
+          messages: [
+            { role:'system', content: composeSystemPrompt() },
+            ...state.conversation.filter(m=>m.role!== 'system').map(({ role, content })=>({ role, content }))
+          ],
+          temperature: 0.2,
+          max_tokens: 700
+        };
+        const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(state.config.deepseek.headers));
+        const res = await fetch(state.config.deepseek.proxyUrl, {
+          method:'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if(!res.ok) throw new Error('El proxy respondió ' + res.status);
+        const data = await res.json();
+        const reply = data?.choices?.[0]?.message?.content?.trim() || 'No recibí contenido del modelo.';
+        appendAssistant(reply);
+        $('#chat-status').textContent = 'Agente listo';
+      }catch(err){
+        appendAssistant('No se pudo contactar al agente: ' + err.message);
+        $('#chat-status').textContent = 'Configura API';
+      }finally{
+        button.disabled = false;
+      }
+    }
+
+    function composeSystemPrompt(){
+      const base = state.systemPrompt || 'Eres un asistente de investigación de WikiScope.';
+      const persona = `\n\nPerfil:\n- Nombre: ${state.prefs.username || 'Investigador/a'}\n- Idioma preferido: ${state.prefs.lang}\n- Nivel: ${state.prefs.level}\n- Formato: ${state.prefs.format}\n- Enfoques: ${(state.prefs.focus||[]).join(', ') || 'ninguno'}\n- Citas obligatorias: ${state.prefs.show_cites ? 'sí' : 'cuando sea relevante'}`;
+      return base + persona + '\nRespeta el idioma preferido del usuario y marca claramente cuando falte evidencia.';
+    }
+
+    function sanitizeHeaders(headers){
+      if(!headers) return {};
+      const clean = {};
+      for(const key in headers){
+        const value = headers[key];
+        if(typeof value === 'string' && value.includes('{{')) continue;
+        clean[key] = value;
+      }
+      return clean;
+    }
+  </script>
+</body>
+</html>
