@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -47,6 +47,7 @@
     .segmented button.active{background:var(--accent);color:#fff}
     .temp-wrap{display:flex;align-items:center;gap:8px}
     .temp-wrap input[type="range"]{width:160px}
+    .sel{height:34px;border:1px solid var(--border);border-radius:10px;padding:4px 8px;background:#fff}
     .chat-messages{flex:1;padding:20px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
     .message{max-width:80%;padding:12px 16px;border-radius:18px}
     .message.user{align-self:flex-end;background:var(--accent);color:#fff}
@@ -139,7 +140,7 @@
       </header>
 
       <!-- Vista principal: Chat -->
-      <div id="view-home" class="view active">
+      <div id="view-inicio" class="view active">
         <article class="card" id="analysis-card" style="display:none; margin-bottom:16px">
           <div class="card-header">
             <h2>Análisis rápido de Wikipedia</h2>
@@ -160,6 +161,8 @@
                 <input id="temp" type="range" min="0" max="1" step="0.05" value="0.20" />
                 <span id="temp-value" class="muted">0.20</span>
               </div>
+              <select id="provider-select" class="sel" title="Proveedor de IA"></select>
+              <select id="model-select" class="sel" title="Modelo"></select>
             </div>
             <span class="muted" id="chat-status">Listo para investigar</span>
           </div>
@@ -328,13 +331,8 @@
   <script>
     const STORAGE_KEY = 'wikiscope:prefs';
     const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
-    // Intentaremos cargar configuración desde ambas ubicaciones y combinar
-    const VAULT_PATHS = [
-      '../Documentos/personal/personal_vault.ink',
-      '../Documentos/personal/vault.ink',
-      'vault.ink',
-      '../html/vault.ink'
-    ];
+    // Usar solamente el vault del frontend
+    const VAULT_PATH = 'vault.ink';
 
     const state = {
       prefs: {
@@ -350,7 +348,9 @@
         length: 3,
         structure: ['bullets'],
         cite_level: 0.7,
-        notes: ''
+        notes: '',
+        provider: 'deepseek',
+        model: 'deepseek-chat'
       },
       config: null,
       systemPrompt: '',
@@ -406,38 +406,59 @@
       renderPrefs();
       // inicializar controles de modo/temperatura
       updateModeUI();
+      initProviderModelSelectors();
       bindEvents();
       updatePersonaSummary();
     }
 
     async function loadVault(){
-      // Combinar múltiples ubicaciones de vault
-      const merged = {};
-      for (const path of VAULT_PATHS){
-        try{
-          const res = await fetch(path, { cache: 'no-store' });
-          if(!res.ok) continue;
-          const txt = (await res.text()).trim();
-          if(!txt) continue;
-          const cfg = JSON.parse(txt);
-          deepMerge(merged, cfg);
-        }catch(_e){ /* ignorar */ }
-      }
-      // Seguridad: ignorar cualquier apiKey en cliente
-      if (merged?.deepseek?.apiKey){ delete merged.deepseek.apiKey; }
-      return Object.keys(merged).length ? merged : null;
+      const res = await fetch(VAULT_PATH, { cache: 'no-store' });
+      if(!res.ok) return {};
+      const txt = (await res.text()).trim();
+      if(!txt) return {};
+      try{
+        const cfg = JSON.parse(txt);
+        return cfg || {};
+      }catch(_){ return {}; }
     }
 
-    function deepMerge(target, src){
-      for (const k in src){
-        if(src[k] && typeof src[k]==='object' && !Array.isArray(src[k])){
-          if(!target[k]) target[k] = {};
-          deepMerge(target[k], src[k]);
-        } else {
-          target[k] = src[k];
-        }
+    function initProviderModelSelectors(){
+      const providerSel = $('#provider-select');
+      const modelSel = $('#model-select');
+      const providers = [];
+      if(state.config?.deepseek) providers.push('deepseek');
+      if(state.config?.openai) providers.push('openai');
+      if(providers.length===0) providers.push('deepseek');
+      providerSel.innerHTML = providers.map(p=> `<option value="${p}">${p}</option>`).join('');
+      // aplicar preferencia guardada
+      if(state.prefs.provider && providers.includes(state.prefs.provider)) providerSel.value = state.prefs.provider;
+      refreshModelOptions();
+      providerSel.addEventListener('change', ()=>{
+        state.prefs.provider = providerSel.value;
+        refreshModelOptions();
+        persistPrefs();
+      });
+      modelSel.addEventListener('change', ()=>{
+        state.prefs.model = modelSel.value;
+        persistPrefs();
+      });
+    }
+
+    function refreshModelOptions(){
+      const provider = state.prefs.provider || 'deepseek';
+      const modelSel = $('#model-select');
+      let models = [];
+      if(provider==='deepseek'){
+        const cfg = state.config?.deepseek || {};
+        models = cfg.models || [cfg.model || 'deepseek-chat', 'deepseek-coder'];
+      }else if(provider==='openai'){
+        const cfg = state.config?.openai || {};
+        models = cfg.models || [cfg.model || 'chatgpt-5-nano', 'gpt-4o-mini'];
       }
-      return target;
+      models = [...new Set(models.filter(Boolean))];
+      modelSel.innerHTML = models.map(m=> `<option value="${m}">${m}</option>`).join('');
+      state.prefs.model = state.prefs.model && models.includes(state.prefs.model) ? state.prefs.model : models[0];
+      modelSel.value = state.prefs.model;
     }
 
     async function fetchText(path){
@@ -725,27 +746,43 @@
       if (statusEl) statusEl.textContent = 'Consultando agente…';
       
       try{
-        if(!state.config?.deepseek?.proxyUrl){
-          throw new Error('Configura un proxy seguro de DeepSeek en Documentos/personal/vault.ink');
-        }
         // Recuperar contexto inicial de Wikipedia para grounding
         const wiki = await getWikipediaContext(latestUserMessage, state.prefs.lang || 'es');
-        const payload = {
-          model: state.config.deepseek.model || 'deepseek-chat',
-          messages: [
-            { role:'system', content: composeSystemPrompt() },
-            wiki ? { role:'system', content: wiki } : null,
-            ...state.conversation.filter(m=>m.role!== 'system').map(({ role, content })=>({ role, content }))
-          ].filter(Boolean),
-          temperature: Number(state.prefs?.temp ?? 0.2),
-          max_tokens: 700
-        };
-        const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(state.config.deepseek.headers));
-        const res = await fetch(state.config.deepseek.proxyUrl, {
-          method:'POST',
-          headers,
-          body: JSON.stringify(payload)
-        });
+        const messages = [
+          { role:'system', content: composeSystemPrompt() },
+          wiki ? { role:'system', content: wiki } : null,
+          ...state.conversation.filter(m=>m.role!== 'system').map(({ role, content })=>({ role, content }))
+        ].filter(Boolean);
+
+        const provider = state.prefs.provider || 'deepseek';
+        const model = state.prefs.model || (provider==='openai' ? 'chatgpt-5-nano' : 'deepseek-chat');
+        const payload = { model, messages, temperature: Number(state.prefs?.temp ?? 0.2), max_tokens: 700 };
+        let res;
+        if(provider==='deepseek'){
+          const cfg = state.config?.deepseek || {};
+          if(cfg.proxyUrl){
+            const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
+            res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
+          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+            res = await fetch((cfg.apiBase||'https://api.deepseek.com') + '/chat/completions', {
+              method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${cfg.apiKey}` }, body: JSON.stringify(payload)
+            });
+          }else{
+            throw new Error('DeepSeek sin proxy. Configura deepseek.proxyUrl en vault.ink');
+          }
+        } else if(provider==='openai'){
+          const cfg = state.config?.openai || {};
+          if(cfg.proxyUrl){
+            const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
+            res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
+          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+            res = await fetch((cfg.apiBase||'https://api.openai.com/v1') + '/chat/completions', {
+              method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${cfg.apiKey}` }, body: JSON.stringify(payload)
+            });
+          }else{
+            throw new Error('OpenAI sin proxy. Configura openai.proxyUrl en vault.ink');
+          }
+        }
         if(!res.ok) throw new Error('El proxy respondió ' + res.status);
         const data = await res.json();
         const reply = data?.choices?.[0]?.message?.content?.trim() || 'No recibí contenido del modelo.';
@@ -881,3 +918,4 @@
   </script>
 </body>
 </html>
+
