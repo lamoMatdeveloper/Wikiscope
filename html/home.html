@@ -317,6 +317,7 @@
     </main>
   </div>
 
+  <script src="scripts/wikipedia.js"></script>
   <script>
     const STORAGE_KEY = 'wikiscope:prefs';
     const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
@@ -768,19 +769,30 @@
 
     async function getWikipediaContext(query, lang){
       try{
-        const q = encodeURIComponent(query.slice(0,160));
-        const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q}&format=json&origin=*`;
-        const r = await fetch(api, { headers:{ 'Accept':'application/json' } });
-        if(!r.ok) return '';
-        const j = await r.json();
-        const titles = (j?.query?.search||[]).slice(0,2).map(it=>it.title);
+        // Usa el módulo WikiAPI si está presente; fallback al fetch sencillo
+        let titles = [];
+        if(window.WikiAPI){
+          const sr = await window.WikiAPI.searchArticles(query.slice(0,160), { lang, limit: 2 });
+          titles = sr.map(s=> s.title);
+        }else{
+          const q = encodeURIComponent(query.slice(0,160));
+          const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q}&format=json&origin=*`;
+          const r = await fetch(api, { headers:{ 'Accept':'application/json' } });
+          if(!r.ok) return '';
+          const j = await r.json();
+          titles = (j?.query?.search||[]).slice(0,2).map(it=>it.title);
+        }
         const blocks = [];
         for(const t of titles){
-          const tt = encodeURIComponent(t.replace(/\s/g,'_'));
-          const s = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${tt}`);
-          if(!s.ok) continue;
-          const d = await s.json();
-          const line = `- ${d.title}: ${d.description||''} — ${d.extract?.slice(0,400)||''} (URL: ${d.content_urls?.desktop?.page||d.content_urls?.mobile?.page||d.extract_html?'https://wikipedia.org':''})`;
+          let d = null;
+          if(window.WikiAPI){ d = await window.WikiAPI.pageSummary(t, { lang }); }
+          else{
+            const tt = encodeURIComponent(t.replace(/\s/g,'_'));
+            const s = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${tt}`);
+            if(!s.ok) continue; d = await s.json();
+          }
+          const media = window.WikiAPI ? await window.WikiAPI.pageMedia(t, { lang, limit: 2 }) : [];
+          const line = `- ${d.title}: ${d.description||''} — ${d.extract?.slice(0,400)||''} ${(media&&media.length)?'\n  Imagenes: '+media.map(m=>m.thumb||m.url).join(', '):''} (URL: ${d.content_urls?.desktop?.page||d.content_urls?.mobile?.page||''})`;
           blocks.push(line);
         }
         if(!blocks.length) return '';
