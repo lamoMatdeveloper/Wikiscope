@@ -80,7 +80,95 @@
     return detailed;
   };
 
+  // 6) Categorías de una página
+  WikiAPI.categories = async (title, { lang='es', limit=20 }={})=>{
+    const url = `https://${lang}.wikipedia.org/w/api.php?${q({
+      action:'query', prop:'categories', titles:title, clshow:'!hidden', cllimit:limit, format:'json', origin:'*'
+    })}`;
+    const data = await fetchJson(url);
+    const pages = data?.query?.pages||{};
+    const first = Object.values(pages)[0];
+    return (first?.categories||[]).map(c=> c.title.replace(/^Category:/,''));
+  };
+
+  // 7) Enlaces internos (ns=0) de una página
+  WikiAPI.links = async (title, { lang='es', limit=20 }={})=>{
+    const url = `https://${lang}.wikipedia.org/w/api.php?${q({
+      action:'query', prop:'links', titles:title, plnamespace:0, pllimit:limit, format:'json', origin:'*'
+    })}`;
+    const data = await fetchJson(url);
+    const pages = data?.query?.pages||{};
+    const first = Object.values(pages)[0];
+    return (first?.links||[]).map(l=> l.title);
+  };
+
+  // 8) Enlaces externos de una página
+  WikiAPI.externalLinks = async (title, { lang='es', limit=20 }={})=>{
+    const url = `https://${lang}.wikipedia.org/w/api.php?${q({
+      action:'query', prop:'extlinks', titles:title, ellimit:limit, format:'json', origin:'*'
+    })}`;
+    const data = await fetchJson(url);
+    const pages = data?.query?.pages||{};
+    const first = Object.values(pages)[0];
+    return (first?.extlinks||[]).map(e=> e['*']).filter(Boolean);
+  };
+
+  // 9) Pageviews (últimos 30 días)
+  WikiAPI.pageviews = async (title, { lang='es', days=30 }={})=>{
+    const project = `${lang}.wikipedia`;
+    const article = encodeURIComponent(title.replace(/\s/g,'_'));
+    const end = new Date(); end.setDate(end.getDate()-1);
+    const start = new Date(end); start.setDate(end.getDate()-days+1);
+    const fmt = (d)=> `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+    const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/${project}.org/all-access/user/${article}/daily/${fmt(start)}00/${fmt(end)}00`;
+    try{
+      const data = await fetchJson(url);
+      const items = data?.items||[];
+      const total = items.reduce((s,i)=> s + (i.views||0), 0);
+      const avg = items.length ? total/items.length : 0;
+      return { total, avg, days: items.length };
+    }catch(_){ return { total:0, avg:0, days:0 }; }
+  };
+
+  // 10) Secciones
+  WikiAPI.sections = async (title, { lang='es' }={})=>{
+    const url = `https://${lang}.wikipedia.org/w/api.php?${q({
+      action:'parse', page:title, prop:'sections', formatversion:2, format:'json', origin:'*'
+    })}`;
+    const data = await fetchJson(url);
+    return (data?.parse?.sections||[]).map(s=> ({ index:s.index, line:s.line, level: s.level }));
+  };
+
+  // 11) Construir briefing básico con datos verificables
+  WikiAPI.buildBriefing = async (query, { lang='es' }={})=>{
+    const [first] = await WikiAPI.searchArticles(query, { lang, limit: 1 });
+    if(!first) return null;
+    const title = first.title;
+    const [summary, media, cats, links, exts, pv, secs] = await Promise.all([
+      WikiAPI.pageSummary(title,{lang}),
+      WikiAPI.pageMedia(title,{lang, limit:3, thumbWidth:480}).catch(()=>[]),
+      WikiAPI.categories(title,{lang, limit:12}).catch(()=>[]),
+      WikiAPI.links(title,{lang, limit:12}).catch(()=>[]),
+      WikiAPI.externalLinks(title,{lang, limit:10}).catch(()=>[]),
+      WikiAPI.pageviews(title,{lang, days:30}).catch(()=>({})),
+      WikiAPI.sections(title,{lang}).catch(()=>[])
+    ]);
+    return {
+      query,
+      title,
+      url: summary?.content_urls?.desktop?.page || summary?.content_urls?.mobile?.page || '',
+      thumbnail: summary?.thumbnail?.source || '',
+      description: summary?.description || '',
+      extract: summary?.extract || '',
+      media,
+      categories: cats,
+      links,
+      external: exts,
+      pageviews: pv,
+      sections: secs
+    };
+  };
+
   // Exponer en window
   window.WikiAPI = WikiAPI;
 })();
-

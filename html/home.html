@@ -130,7 +130,7 @@
       <header class="topbar">
         <form id="search-form" class="search" autocomplete="off">
           <input id="search-query" type="search" placeholder="Busca cualquier tema para investigar..." />
-          <button id="search-btn" type="submit">Buscar</button>
+          <button id="search-btn" type="submit">Analizar</button>
         </form>
         <div class="persona-chip">
           <span>Perfil activo</span>
@@ -140,6 +140,13 @@
 
       <!-- Vista principal: Chat -->
       <div id="view-home" class="view active">
+        <article class="card" id="analysis-card" style="display:none; margin-bottom:16px">
+          <div class="card-header">
+            <h2>Análisis rápido de Wikipedia</h2>
+            <span id="analysis-status" class="muted"></span>
+          </div>
+          <div id="analysis-content" class="muted">Introduce un tema en la búsqueda para generar un análisis.</div>
+        </article>
         <div class="chat-container">
           <div class="chat-header">
             <h2>Agente investigador</h2>
@@ -561,6 +568,14 @@
         $('#temp-value').textContent = v.toFixed(2);
         persistPrefs();
       });
+
+      // Búsqueda / análisis de Wikipedia
+      $('#search-form').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const q = $('#search-query').value.trim();
+        if(!q) return;
+        await runAnalysis(q);
+      });
     }
 
     async function handleChatSubmit() {
@@ -765,6 +780,53 @@
         clean[key] = value;
       }
       return clean;
+    }
+
+    async function runAnalysis(query){
+      try{
+        $('#analysis-card').style.display = 'block';
+        $('#analysis-status').textContent = 'Analizando…';
+        const lang = state.prefs.lang || 'es';
+        const briefing = window.WikiAPI ? await window.WikiAPI.buildBriefing(query, { lang }) : null;
+        if(!briefing){
+          $('#analysis-content').textContent = 'No se encontró un artículo principal.';
+          $('#analysis-status').textContent = '';
+          return;
+        }
+        renderAnalysis(briefing);
+        $('#analysis-status').textContent = 'Listo';
+        // Alimentar al agente con este briefing como contexto adicional
+        state.conversation.push({ role:'system', content: 'Briefing de Wikipedia: ' + JSON.stringify(briefing).slice(0,3000) });
+      }catch(err){
+        $('#analysis-content').textContent = 'Error al analizar: ' + err.message;
+        $('#analysis-status').textContent = 'Error';
+      }
+    }
+
+    function renderAnalysis(b){
+      const el = $('#analysis-content');
+      const mediaHtml = (b.media||[]).map(m=> `<img src="${m.thumb||m.url}" alt="${m.title}" style="height:64px;border-radius:8px;border:1px solid #e5e7eb">`).join(' ');
+      const cats = (b.categories||[]).slice(0,8).map(c=> `<span class="pill">${c}</span>`).join(' ');
+      const links = (b.links||[]).slice(0,8).map(l=> `<span class="pill">${l}</span>`).join(' ');
+      const exts = (b.external||[]).slice(0,6).map(u=> `<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\//,'').slice(0,40)}…</a>`).join(' · ');
+      el.innerHTML = `
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          ${b.thumbnail?`<img src="${b.thumbnail}" alt="thumb" style="width:96px;height:96px;border-radius:12px;border:1px solid #e5e7eb;object-fit:cover">`:''}
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <h3 style="margin:0">${b.title}</h3>
+              <a href="${b.url}" target="_blank" rel="noopener" class="pill">Abrir en Wikipedia</a>
+            </div>
+            <p class="muted" style="margin:6px 0 8px">${b.description||''}</p>
+            <p style="margin:0 0 8px">${(b.extract||'').slice(0,320)}${(b.extract||'').length>320?'…':''}</p>
+          </div>
+        </div>
+        ${mediaHtml?`<div style="margin:10px 0 6px;display:flex;gap:8px;flex-wrap:wrap">${mediaHtml}</div>`:''}
+        <div style="margin:6px 0 6px;display:flex;gap:8px;flex-wrap:wrap">${cats}</div>
+        <div style="margin:6px 0 6px;display:flex;gap:8px;flex-wrap:wrap">${links}</div>
+        <div class="muted" style="margin-top:6px">Vistas (30 días): promedio ${Math.round(b.pageviews?.avg||0)} / día</div>
+        ${exts?`<div style="margin-top:10px">Fuentes externas: ${exts}</div>`:''}
+      `;
     }
 
     async function getWikipediaContext(query, lang){
