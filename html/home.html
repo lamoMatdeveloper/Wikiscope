@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -9,7 +9,7 @@
     :root{
       --bg:#f6f7f9; --sidebar:#ffffff; --border:#e5e7eb; --shadow:0 10px 30px rgba(15,23,42,.06);
       --text:#1f2937; --muted:#6b7280; --accent:#2563eb; --accent-soft:#eef2ff; --card:#ffffff;
-      --radius:18px; --radius-sm:12px;
+      --radius:18px; --radius-sm:12px; --success:#10b981; --warning:#f59e0b; --error:#ef4444;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
@@ -24,6 +24,8 @@
     .nav-footer{margin-top:auto;display:grid;gap:12px}
     .btn-ghost{border:1px solid var(--border);background:#fff;border-radius:var(--radius-sm);padding:10px 14px;font-weight:600;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:8px}
     .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-icon{background:none;border:none;padding:8px;cursor:pointer;color:var(--muted);border-radius:var(--radius-sm)}
+    .btn-icon:hover{background:var(--accent-soft);color:var(--accent)}
 
     main{padding:32px 36px 48px;display:flex;flex-direction:column;gap:24px}
     .topbar{display:flex;align-items:center;justify-content:space-between;gap:20px}
@@ -35,46 +37,51 @@
     .persona-chip span{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
     .persona-chip strong{font-size:16px;font-weight:700;margin-top:6px}
 
-    .grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
-    .column{display:grid;gap:20px;align-content:start}
-    .card{background:var(--card);border-radius:var(--radius);padding:22px 24px;border:1px solid var(--border);box-shadow:var(--shadow)}
-    .card h2{margin:0 0 12px;font-size:24px;font-weight:700;letter-spacing:-.01em}
-    .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .card-header h2{margin:0}
-    .muted{color:var(--muted)}
-    .highlight{background:var(--accent-soft);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
-    .tldr-list{padding-left:20px;margin:0 0 12px;display:grid;gap:8px}
-    .pill{display:inline-flex;align-items:center;gap:6px;background:#f9fafb;border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+    /* Chat styles */
+    .chat-container{display:flex;flex-direction:column;height:calc(100vh - 120px);max-height:800px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+    .chat-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .chat-header h2{margin:0;font-size:24px;font-weight:700;letter-spacing:-.01em}
+    .chat-messages{flex:1;padding:20px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+    .message{max-width:80%;padding:12px 16px;border-radius:18px}
+    .message.user{align-self:flex-end;background:var(--accent);color:#fff}
+    .message.assistant{align-self:flex-start;background:#f1f5f9;border:1px solid var(--border)}
+    .message.system{align-self:center;background:#fef3c7;border:1px solid var(--warning);color:#92400e;font-size:14px;padding:8px 12px}
+    .message-typing{display:flex;align-items:center;gap:8px}
+    .typing-indicator{display:flex;gap:4px}
+    .typing-dot{width:8px;height:8px;background:var(--muted);border-radius:50%;animation:typing 1.4s infinite ease-in-out}
+    .typing-dot:nth-child(1){animation-delay:0s}
+    .typing-dot:nth-child(2){animation-delay:0.2s}
+    .typing-dot:nth-child(3){animation-delay:0.4s}
+    @keyframes typing{
+      0%,60%,100%{transform:translateY(0)}
+      30%{transform:translateY(-5px)}
+    }
+    .chat-input-container{padding:20px 24px;border-top:1px solid var(--border);display:flex;gap:12px}
+    .chat-input{flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:15px;resize:none;min-height:56px;max-height:120px}
+    .chat-input:focus{outline:none;border-color:var(--accent)}
+    .chat-send-btn{background:var(--accent);color:#fff;border:0;border-radius:var(--radius-sm);padding:0 20px;font-weight:600;cursor:pointer;align-self:flex-end}
+    .chat-send-btn:disabled{opacity:.6;cursor:not-allowed}
 
-    .persona-form{display:grid;gap:16px}
-    .persona-fields{display:grid;gap:14px}
-    .persona-fields label{font-size:14px;font-weight:600;color:#374151}
-    .persona-fields input[type="text"],
-    .persona-fields select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:15px}
-    .chip-list{display:flex;gap:10px;flex-wrap:wrap}
-    .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-weight:600;color:var(--muted);cursor:pointer}
-    .chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-    .toggle{display:flex;align-items:center;gap:10px}
-    .toggle input{width:44px;height:24px;border-radius:999px;appearance:none;background:#e5e7eb;position:relative;outline:none;cursor:pointer;transition:.2s}
-    .toggle input::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
-    .toggle input:checked{background:var(--accent)}
-    .toggle input:checked::after{left:22px}
-    .actions{display:flex;justify-content:flex-end;gap:12px}
-    .btn-primary{background:var(--accent);color:#fff;border:0;padding:10px 18px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer}
+    /* Quick actions */
+    .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:24px}
+    .quick-action-card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;transition:all .2s}
+    .quick-action-card:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(0,0,0,.1)}
+    .quick-action-card h3{margin:0 0 8px;font-size:18px;font-weight:600}
+    .quick-action-card p{margin:0;color:var(--muted);font-size:14px}
 
-    .modules{display:grid;gap:14px}
-    .module{border-radius:var(--radius-sm);border:1px solid var(--border);padding:12px 14px;background:#f8fafc}
-    .module strong{display:block;font-size:14px}
-    .module span{color:var(--muted);font-size:13px}
+    /* Collections */
+    .collections-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px;margin-top:24px}
+    .collection-card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer}
+    .collection-card:hover{border-color:var(--accent)}
+    .collection-card h3{margin:0 0 8px;font-size:18px;font-weight:600}
+    .collection-card p{margin:0;color:var(--muted);font-size:14px}
 
-    .chat{display:flex;flex-direction:column;gap:14px}
-    .chat-log{display:grid;gap:12px;max-height:380px;overflow:auto;padding-right:4px}
-    .message{border-radius:var(--radius-sm);padding:12px 14px;font-size:15px;line-height:1.4;border:1px solid var(--border)}
-    .message.user{background:#eff6ff;border-color:#bfdbfe}
-    .message.assistant{background:#f9fafb}
-    .timestamp{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
-    .chat textarea{width:100%;min-height:90px;border-radius:var(--radius-sm);border:1px solid var(--border);padding:12px;font-family:inherit;font-size:15px}
-    .chat button{align-self:flex-end}
+    /* Explore topics */
+    .topics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:24px}
+    .topic-card{background:var(--card);border-radius:var(--radius);padding:16px;border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;text-align:center}
+    .topic-card:hover{border-color:var(--accent)}
+    .topic-card h3{margin:0;font-size:16px;font-weight:600}
+    .topic-card p{margin:8px 0 0;color:var(--muted);font-size:13px}
 
     footer{margin-top:12px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
     footer a{color:var(--muted);text-decoration:none}
@@ -84,12 +91,13 @@
       .app{grid-template-columns:1fr}
       aside{display:none}
       main{padding:24px}
-      .grid{grid-template-columns:1fr}
-      .persona-chip{display:none}
     }
     @media(max-width:640px){
       .search{flex-direction:column;align-items:stretch}
       .search button{width:100%}
+      .chat-messages{padding:16px}
+      .message{max-width:90%}
+      .quick-actions{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -116,7 +124,7 @@
       <header class="topbar">
         <form id="search-form" class="search" autocomplete="off">
           <input id="search-query" type="search" placeholder="Busca cualquier tema para investigar..." />
-          <button id="search-btn" type="submit" disabled>Pronto</button>
+          <button id="search-btn" type="submit">Buscar</button>
         </form>
         <div class="persona-chip">
           <span>Perfil activo</span>
@@ -124,95 +132,138 @@
         </div>
       </header>
 
-      <div class="grid">
-        <section class="column">
-          <article class="card" id="briefing-card">
-            <div class="card-header">
-              <h2>TL;DR personalizado</h2>
-              <span class="highlight" id="briefing-status">Configurar búsqueda</span>
+      <!-- Vista principal: Chat -->
+      <div id="view-home" class="view active">
+        <div class="chat-container">
+          <div class="chat-header">
+            <h2>Agente investigador</h2>
+            <span class="muted" id="chat-status">Listo para investigar</span>
+          </div>
+          <div id="chat-messages" class="chat-messages">
+            <div class="message assistant">
+              <div class="content">¡Hola! Soy tu asistente de investigación de WikiScope. ¿Sobre qué tema te gustaría investigar hoy?</div>
             </div>
-            <p class="muted" id="briefing-intro">Configura tu perfil y lanza una búsqueda para generar un briefing con citas verificables.</p>
-            <ul class="tldr-list" id="tldr-list">
-              <li class="muted">• Resultados aparecerán aquí una vez se integre la API de Wikipedia.</li>
-            </ul>
-            <div class="pill">Citas verificadas pendientes ⚙️</div>
-          </article>
+          </div>
+          <div class="chat-input-container">
+            <textarea id="chat-input" class="chat-input" placeholder="Escribe tu pregunta aquí..."></textarea>
+            <button id="chat-send" class="chat-send-btn">Enviar</button>
+          </div>
+        </div>
 
-          <article class="card">
-            <div class="card-header">
-              <h2>Ajusta tu experiencia</h2>
-              <span class="muted">Se guarda al instante</span>
-            </div>
-            <form id="persona-form" class="persona-form" autocomplete="off">
-              <div class="persona-fields">
-                <label for="pref-name">Nombre de usuario</label>
-                <input id="pref-name" type="text" placeholder="Ej. Ana Investigadora" />
-              </div>
-              <div class="persona-fields">
-                <label for="pref-lang">Idioma preferido</label>
-                <select id="pref-lang">
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div class="persona-fields">
-                <label for="pref-level">Profundidad deseada</label>
-                <select id="pref-level">
-                  <option value="intro">Introductorio</option>
-                  <option value="advanced">Avanzado</option>
-                </select>
-              </div>
-              <div class="persona-fields">
-                <label for="pref-format">Formato de resumen</label>
-                <select id="pref-format">
-                  <option value="tldr">TL;DR citado</option>
-                  <option value="narrative">Narrativa continua</option>
-                </select>
-              </div>
-              <div class="persona-fields">
-                <label>Enfoques prioritarios</label>
-                <div class="chip-list" id="pref-focus">
-                  <button type="button" class="chip" data-value="apps">Aplicaciones</button>
-                  <button type="button" class="chip" data-value="data">Datos</button>
-                  <button type="button" class="chip" data-value="bio">Biografías</button>
-                  <button type="button" class="chip" data-value="history">Historia</button>
-                </div>
-              </div>
-              <div class="persona-fields">
-                <label class="toggle">
-                  <input id="pref-cites" type="checkbox" />
-                  <span>Mostrar siempre citas</span>
-                </label>
-              </div>
-            </form>
-            <div class="actions">
-              <button id="btn-reset" class="btn-ghost" type="button">Revertir cambios</button>
-              <button id="btn-save" class="btn-primary" type="button">Guardar preferencias</button>
-            </div>
-          </article>
-        </section>
+        <!-- Acciones rápidas -->
+        <div class="quick-actions">
+          <div class="quick-action-card" onclick="showView('colecciones')">
+            <h3>Colecciones</h3>
+            <p>Explora tus colecciones guardadas</p>
+          </div>
+          <div class="quick-action-card" onclick="showView('explorar')">
+            <h3>Explorar temas</h3>
+            <p>Descubre nuevos temas de interés</p>
+          </div>
+          <div class="quick-action-card" onclick="showView('ajustes')">
+            <h3>Ajustes</h3>
+            <p>Personaliza tu experiencia</p>
+          </div>
+        </div>
+      </div>
 
-        <aside class="column">
-          <article class="card modules">
-            <h2>Herramientas</h2>
-            <div class="module"><strong>Summarizer</strong><span>Genera resúmenes concisos citados.</span></div>
-            <div class="module"><strong>Graph Explorer</strong><span>Visualiza relaciones entre artículos.</span></div>
-            <div class="module"><strong>Persona Tuner</strong><span>Ajusta peso de tópicos y profundidad.</span></div>
-            <div class="module"><strong>Evidence Checker</strong><span>Verifica citas antes de compartir.</span></div>
-          </article>
+      <!-- Vista de Colecciones -->
+      <div id="view-colecciones" class="view" style="display:none">
+        <h2>Colecciones</h2>
+        <div class="collections-grid">
+          <div class="collection-card">
+            <h3>Ciencia e Innovación</h3>
+            <p>12 artículos guardados</p>
+          </div>
+          <div class="collection-card">
+            <h3>Historia Moderna</h3>
+            <p>8 artículos guardados</p>
+          </div>
+          <div class="collection-card">
+            <h3>Biografías Destacadas</h3>
+            <p>15 artículos guardados</p>
+          </div>
+        </div>
+      </div>
 
-          <article class="card chat">
-            <div class="card-header">
-              <h2>Agente investigador</h2>
-              <span class="muted" id="chat-status">Esperando mensaje</span>
+      <!-- Vista de Explorar temas -->
+      <div id="view-explorar" class="view" style="display:none">
+        <h2>Explorar temas</h2>
+        <div class="topics-grid">
+          <div class="topic-card">
+            <h3>Inteligencia Artificial</h3>
+            <p>Tecnología</p>
+          </div>
+          <div class="topic-card">
+            <h3>Cambio Climático</h3>
+            <p>Medio Ambiente</p>
+          </div>
+          <div class="topic-card">
+            <h3>Neurociencia</h3>
+            <p>Ciencia</p>
+          </div>
+          <div class="topic-card">
+            <h3>Economía Digital</h3>
+            <p>Finanzas</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista de Ajustes -->
+      <div id="view-ajustes" class="view" style="display:none">
+        <h2>Ajustes</h2>
+        <article class="card">
+          <div class="card-header">
+            <h2>Personaliza tu experiencia</h2>
+            <span class="muted">Se guarda al instante</span>
+          </div>
+          <form id="persona-form" class="persona-form" autocomplete="off">
+            <div class="persona-fields">
+              <label for="pref-name">Nombre de usuario</label>
+              <input id="pref-name" type="text" placeholder="Ej. Ana Investigadora" />
             </div>
-            <div id="chat-log" class="chat-log" aria-live="polite"></div>
-            <form id="chat-form" class="chat" autocomplete="off">
-              <textarea id="chat-input" placeholder="Pregunta algo al agente (ej. hazme un briefing sobre CRISPR)..."></textarea>
-              <button id="chat-send" class="btn-primary" type="submit">Enviar</button>
-            </form>
-          </article>
-        </aside>
+            <div class="persona-fields">
+              <label for="pref-lang">Idioma preferido</label>
+              <select id="pref-lang">
+                <option value="es">Español</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div class="persona-fields">
+              <label for="pref-level">Profundidad deseada</label>
+              <select id="pref-level">
+                <option value="intro">Introductorio</option>
+                <option value="advanced">Avanzado</option>
+              </select>
+            </div>
+            <div class="persona-fields">
+              <label for="pref-format">Formato de resumen</label>
+              <select id="pref-format">
+                <option value="tldr">TL;DR citado</option>
+                <option value="narrative">Narrativa continua</option>
+              </select>
+            </div>
+            <div class="persona-fields">
+              <label>Enfoques prioritarios</label>
+              <div class="chip-list" id="pref-focus">
+                <button type="button" class="chip" data-value="apps">Aplicaciones</button>
+                <button type="button" class="chip" data-value="data">Datos</button>
+                <button type="button" class="chip" data-value="bio">Biografías</button>
+                <button type="button" class="chip" data-value="history">Historia</button>
+              </div>
+            </div>
+            <div class="persona-fields">
+              <label class="toggle">
+                <input id="pref-cites" type="checkbox" />
+                <span>Mostrar siempre citas</span>
+              </label>
+            </div>
+          </form>
+          <div class="actions">
+            <button id="btn-reset" class="btn-ghost" type="button">Revertir cambios</button>
+            <button id="btn-save" class="btn-primary" type="button">Guardar preferencias</button>
+          </div>
+        </article>
       </div>
 
       <footer>
@@ -224,13 +275,6 @@
       </footer>
     </main>
   </div>
-
-  <template id="message-template">
-    <div class="message">
-      <div class="content"></div>
-      <span class="timestamp"></span>
-    </div>
-  </template>
 
   <script>
     const STORAGE_KEY = 'wikiscope:prefs';
@@ -254,6 +298,30 @@
     const $ = (sel)=>document.querySelector(sel);
     const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
 
+    // Función para cambiar entre vistas
+    function showView(viewId) {
+      // Ocultar todas las vistas
+      $$('.view').forEach(view => {
+        view.style.display = 'none';
+      });
+      
+      // Mostrar la vista seleccionada
+      $('#view-' + viewId).style.display = 'block';
+      
+      // Actualizar navegación activa
+      $$('nav a').forEach(link => {
+        link.classList.remove('active');
+      });
+      
+      // Encontrar y activar el enlace correspondiente
+      const activeLink = Array.from($$('nav a')).find(link => 
+        link.getAttribute('href') === '#' + viewId
+      );
+      if (activeLink) {
+        activeLink.classList.add('active');
+      }
+    }
+
     init();
 
     async function init(){
@@ -276,7 +344,6 @@
       renderPrefs();
       bindEvents();
       updatePersonaSummary();
-      appendAssistant('Listo para investigar. Cuéntame qué tema quieres explorar.');
     }
 
     async function loadVault(){
@@ -338,15 +405,55 @@
       $('#btn-sync').addEventListener('click', ()=>{
         alert('Sincronización con backend pendiente de implementación.');
       });
-      $('#chat-form').addEventListener('submit', async (event)=>{
+      
+      // Eventos del chat
+      $('#chat-form')?.addEventListener('submit', async (event)=>{
         event.preventDefault();
-        const input = $('#chat-input');
-        const text = input.value.trim();
-        if(!text) return;
-        input.value = '';
-        appendUser(text);
-        await sendToAgent(text);
+        await handleChatSubmit();
       });
+      
+      $('#chat-send').addEventListener('click', async () => {
+        await handleChatSubmit();
+      });
+      
+      $('#chat-input').addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          await handleChatSubmit();
+        }
+      });
+      
+      // Eventos de navegación
+      $$('nav a').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const href = link.getAttribute('href');
+          if (href.startsWith('#')) {
+            const viewId = href.substring(1);
+            showView(viewId);
+          }
+        });
+      });
+    }
+
+    async function handleChatSubmit() {
+      const input = $('#chat-input');
+      const text = input.value.trim();
+      if(!text) return;
+      
+      // Añadir mensaje del usuario
+      appendUserMessage(text);
+      input.value = '';
+      
+      // Mostrar indicador de escritura
+      showTypingIndicator();
+      
+      // Simular llamada a la API
+      setTimeout(() => {
+        hideTypingIndicator();
+        // Añadir respuesta del asistente
+        appendAssistantMessage(`Entendido. Has preguntado: "${text}". Esta es una respuesta de ejemplo del asistente de investigación. En una implementación completa, aquí se mostraría información relevante basada en tu consulta y las preferencias de tu perfil.`);
+      }, 1500);
     }
 
     function handleFormChange(){
@@ -372,8 +479,61 @@
       const label = `${state.prefs.username || 'Investigador/a'} · ${state.prefs.lang === 'en' ? 'Inglés' : 'Español'} · ${state.prefs.level === 'advanced' ? 'Avanzado' : 'Intro'} · ${focus}`;
       $('#persona-summary').textContent = label;
       if(status){
-        $('#briefing-status').textContent = status;
-        setTimeout(()=>$('#briefing-status').textContent='Configurar búsqueda', 2400);
+        // Mostrar temporalmente el estado
+        const statusEl = $('#chat-status') || $('#briefing-status');
+        if (statusEl) {
+          const originalText = statusEl.textContent;
+          statusEl.textContent = status;
+          setTimeout(()=> {
+            if (statusEl.textContent === status) {
+              statusEl.textContent = originalText;
+            }
+          }, 2400);
+        }
+      }
+    }
+
+    function appendUserMessage(content){
+      const messagesContainer = $('#chat-messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message user';
+      messageDiv.innerHTML = `<div class="content">${content}</div>`;
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function appendAssistantMessage(content){
+      const messagesContainer = $('#chat-messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message assistant';
+      messageDiv.innerHTML = `<div class="content">${content}</div>`;
+      messagesContainer.appendChild(messageDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function showTypingIndicator(){
+      const messagesContainer = $('#chat-messages');
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message assistant';
+      typingDiv.id = 'typing-indicator';
+      typingDiv.innerHTML = `
+        <div class="message-typing">
+          <div class="typing-indicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+          <span>Escribiendo...</span>
+        </div>
+      `;
+      messagesContainer.appendChild(typingDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function hideTypingIndicator(){
+      const typingIndicator = $('#typing-indicator');
+      if (typingIndicator) {
+        typingIndicator.remove();
       }
     }
 
@@ -389,6 +549,8 @@
 
     function renderConversation(){
       const log = $('#chat-log');
+      if (!log) return;
+      
       log.innerHTML = '';
       const template = document.getElementById('message-template');
       state.conversation.forEach(msg=>{
@@ -405,7 +567,9 @@
     async function sendToAgent(latestUserMessage){
       const button = $('#chat-send');
       button.disabled = true;
-      $('#chat-status').textContent = 'Consultando agente…';
+      const statusEl = $('#chat-status') || $('#briefing-status');
+      if (statusEl) statusEl.textContent = 'Consultando agente…';
+      
       try{
         if(!state.config?.deepseek?.proxyUrl){
           throw new Error('Configura un proxy seguro de DeepSeek en Documentos/personal/vault.ink');
@@ -429,10 +593,10 @@
         const data = await res.json();
         const reply = data?.choices?.[0]?.message?.content?.trim() || 'No recibí contenido del modelo.';
         appendAssistant(reply);
-        $('#chat-status').textContent = 'Agente listo';
+        if (statusEl) statusEl.textContent = 'Agente listo';
       }catch(err){
         appendAssistant('No se pudo contactar al agente: ' + err.message);
-        $('#chat-status').textContent = 'Configura API';
+        if (statusEl) statusEl.textContent = 'Error de conexión';
       }finally{
         button.disabled = false;
       }
