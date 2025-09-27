@@ -4,6 +4,13 @@
     "anonKey": "<existing-anon-key>"
   },
   "deepseek": {
-    "apiKey": "sk-d8de25b8539746efb7838f87a3960a3e"
+    "proxyUrl": "https://your-secure-proxy.example.com/api/deepseek",
+    "model": "deepseek-chat",
+    "headers": {
+      "Authorization": "Bearer {{SERVER_SIDE_TOKEN}}"
+    }
+  },
+  "wikipedia": {
+    "defaultLang": "es"
   }
 }

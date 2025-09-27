@@ -320,7 +320,13 @@
   <script>
     const STORAGE_KEY = 'wikiscope:prefs';
     const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
-    const VAULT_PATH = '../Documentos/personal/vault.ink';
+    // Intentaremos cargar configuración desde ambas ubicaciones y combinar
+    const VAULT_PATHS = [
+      '../Documentos/personal/personal_vault.ink',
+      '../Documentos/personal/vault.ink',
+      'vault.ink',
+      '../html/vault.ink'
+    ];
 
     const state = {
       prefs: {
@@ -331,7 +337,12 @@
         focus: ['apps'],
         show_cites: true,
         mode: 'research',
-        temp: 0.2
+        temp: 0.2,
+        tone: ['neutro'],
+        length: 3,
+        structure: ['bullets'],
+        cite_level: 0.7,
+        notes: ''
       },
       config: null,
       systemPrompt: '',
@@ -392,14 +403,33 @@
     }
 
     async function loadVault(){
-      const res = await fetch(VAULT_PATH, { cache: 'no-store' });
-      if(!res.ok) throw new Error('Vault no accesible');
-      const text = (await res.text()).trim();
-      if(!text) return null;
-      try{return JSON.parse(text);}catch(err){
-        console.error('vault.ink no es JSON válido');
-        return null;
+      // Combinar múltiples ubicaciones de vault
+      const merged = {};
+      for (const path of VAULT_PATHS){
+        try{
+          const res = await fetch(path, { cache: 'no-store' });
+          if(!res.ok) continue;
+          const txt = (await res.text()).trim();
+          if(!txt) continue;
+          const cfg = JSON.parse(txt);
+          deepMerge(merged, cfg);
+        }catch(_e){ /* ignorar */ }
       }
+      // Seguridad: ignorar cualquier apiKey en cliente
+      if (merged?.deepseek?.apiKey){ delete merged.deepseek.apiKey; }
+      return Object.keys(merged).length ? merged : null;
+    }
+
+    function deepMerge(target, src){
+      for (const k in src){
+        if(src[k] && typeof src[k]==='object' && !Array.isArray(src[k])){
+          if(!target[k]) target[k] = {};
+          deepMerge(target[k], src[k]);
+        } else {
+          target[k] = src[k];
+        }
+      }
+      return target;
     }
 
     async function fetchText(path){
@@ -420,7 +450,8 @@
       $('#pref-lang').value = state.prefs?.lang || 'es';
       $('#pref-level').value = state.prefs?.level || 'intro';
       $('#pref-format').value = state.prefs?.format || 'tldr';
-      $('#pref-cites').checked = state.prefs?.show_cites ?? true;
+      // compatibilidad con pref_cites heredado
+      $('#pref-cites')?.setAttribute('aria-hidden','true');
       const focusSet = new Set(state.prefs?.focus || []);
       $$('#pref-focus .chip').forEach(ch=>{
         ch.setAttribute('aria-pressed', focusSet.has(ch.dataset.value) ? 'true' : 'false');
@@ -429,6 +460,16 @@
       const t = typeof state.prefs?.temp === 'number' ? state.prefs.temp : 0.2;
       const tempEl = $('#temp'); const lbl = $('#temp-value');
       if (tempEl && lbl) { tempEl.value = t.toFixed(2); lbl.textContent = Number(tempEl.value).toFixed(2); }
+      // Tono, longitud, estructura, citas, notas
+      const toneSet = new Set(state.prefs?.tone || []);
+      $$('#pref-tone .chip').forEach(ch=> ch.setAttribute('aria-pressed', toneSet.has(ch.dataset.value) ? 'true' : 'false'));
+      $('#pref-length').value = String(state.prefs?.length ?? 3);
+      { const labels=['muy corta','corta','media','larga','muy larga']; const lv=Number($('#pref-length').value)||3; $('#pref-length-value').textContent = labels[(lv-1)|0]; }
+      const structSet = new Set(state.prefs?.structure || []);
+      $$('#pref-structure .chip').forEach(ch=> ch.setAttribute('aria-pressed', structSet.has(ch.dataset.value) ? 'true' : 'false'));
+      $('#pref-citelevel').value = (state.prefs?.cite_level ?? 0.7);
+      $('#pref-citelevel-value').textContent = (state.prefs?.cite_level ?? 0.7) >= 0.7 ? 'alto' : (state.prefs?.cite_level ?? 0.7) >= 0.4 ? 'medio' : 'bajo';
+      $('#pref-notes').value = state.prefs?.notes || '';
     }
 
     function bindEvents(){
@@ -447,6 +488,32 @@
           handleFormChange();
         });
       });
+      $$('#pref-tone .chip').forEach(ch=>{
+        ch.addEventListener('click', ()=>{
+          const pressed = ch.getAttribute('aria-pressed') === 'true';
+          ch.setAttribute('aria-pressed', String(!pressed));
+          handleFormChange();
+        });
+      });
+      $$('#pref-structure .chip').forEach(ch=>{
+        ch.addEventListener('click', ()=>{
+          const pressed = ch.getAttribute('aria-pressed') === 'true';
+          ch.setAttribute('aria-pressed', String(!pressed));
+          handleFormChange();
+        });
+      });
+      $('#pref-length').addEventListener('input', ()=>{
+        const labels=['muy corta','corta','media','larga','muy larga'];
+        const lv=Number($('#pref-length').value)||3;
+        $('#pref-length-value').textContent = labels[(lv-1)|0];
+        handleFormChange();
+      });
+      $('#pref-citelevel').addEventListener('input', ()=>{
+        const v = Number($('#pref-citelevel').value);
+        $('#pref-citelevel-value').textContent = v>=0.7?'alto':v>=0.4?'medio':'bajo';
+        handleFormChange();
+      });
+      $('#pref-notes').addEventListener('input', handleFormChange);
       $('#btn-logout').addEventListener('click', ()=>{
         localStorage.removeItem(STORAGE_KEY);
         window.location.href = 'loggin.html';
@@ -518,13 +585,20 @@
 
     function handleFormChange(){
       const focus = $$('#pref-focus .chip[aria-pressed="true"]').map(b=>b.dataset.value);
+      const tone = $$('#pref-tone .chip[aria-pressed="true"]').map(b=>b.dataset.value);
+      const structure = $$('#pref-structure .chip[aria-pressed="true"]').map(b=>b.dataset.value);
       state.prefs = {
         username: $('#pref-name').value.trim(),
         lang: $('#pref-lang').value,
         level: $('#pref-level').value,
         format: $('#pref-format').value,
         focus,
-        show_cites: $('#pref-cites').checked
+        tone,
+        length: Number($('#pref-length').value),
+        structure,
+        cite_level: Number($('#pref-citelevel').value),
+        notes: $('#pref-notes').value.trim(),
+        show_cites: true
       };
       updatePersonaSummary();
     }
@@ -638,12 +712,15 @@
         if(!state.config?.deepseek?.proxyUrl){
           throw new Error('Configura un proxy seguro de DeepSeek en Documentos/personal/vault.ink');
         }
+        // Recuperar contexto inicial de Wikipedia para grounding
+        const wiki = await getWikipediaContext(latestUserMessage, state.prefs.lang || 'es');
         const payload = {
           model: state.config.deepseek.model || 'deepseek-chat',
           messages: [
             { role:'system', content: composeSystemPrompt() },
+            wiki ? { role:'system', content: wiki } : null,
             ...state.conversation.filter(m=>m.role!== 'system').map(({ role, content })=>({ role, content }))
-          ],
+          ].filter(Boolean),
           temperature: Number(state.prefs?.temp ?? 0.2),
           max_tokens: 700
         };
@@ -674,7 +751,8 @@
       const modeSpec = mode === 'conversacional'
         ? '\n\nModo: Conversacional.\n- Tono cercano, colaborativo y empático.\n- Prioriza brainstorming y creatividad.\n- No necesitas citar cada frase, pero evita inventar hechos. Cuando des datos concretos, sugiere cómo verificarlos (artículos/secciones).\n- Haz preguntas de clarificación y propone próximos pasos.'
         : '\n\nModo: Investigación.\n- Rigurosidad, concisión y citabilidad.\n- Prefiere bullets citados y separar hechos de hipótesis.\n- Si falta evidencia suficiente, dilo explícitamente y propone verificación.';
-      return base + persona + modeSpec + `\n\nParámetros: temperatura=${Number(state.prefs?.temp ?? 0.2).toFixed(2)}.` + '\nRespeta el idioma preferido del usuario.';
+      const style = `\n\nPreferencias de estilo:\n- Tono: ${(state.prefs.tone||['neutro']).join(', ')}\n- Longitud: ${['muy corta','corta','media','larga','muy larga'][((state.prefs.length||3)-1)|0]}\n- Estructura: ${(state.prefs.structure||['bullets']).join(', ')}\n- Rigor de citas (0-1): ${(state.prefs.cite_level??0.7).toFixed(2)}\n- Instrucciones: ${state.prefs.notes||'N/A'}`;
+      return base + persona + modeSpec + style + `\n\nParámetros: temperatura=${Number(state.prefs?.temp ?? 0.2).toFixed(2)}.` + '\nRespeta el idioma preferido del usuario.';
     }
 
     function sanitizeHeaders(headers){
@@ -686,6 +764,28 @@
         clean[key] = value;
       }
       return clean;
+    }
+
+    async function getWikipediaContext(query, lang){
+      try{
+        const q = encodeURIComponent(query.slice(0,160));
+        const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${q}&format=json&origin=*`;
+        const r = await fetch(api, { headers:{ 'Accept':'application/json' } });
+        if(!r.ok) return '';
+        const j = await r.json();
+        const titles = (j?.query?.search||[]).slice(0,2).map(it=>it.title);
+        const blocks = [];
+        for(const t of titles){
+          const tt = encodeURIComponent(t.replace(/\s/g,'_'));
+          const s = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${tt}`);
+          if(!s.ok) continue;
+          const d = await s.json();
+          const line = `- ${d.title}: ${d.description||''} — ${d.extract?.slice(0,400)||''} (URL: ${d.content_urls?.desktop?.page||d.content_urls?.mobile?.page||d.extract_html?'https://wikipedia.org':''})`;
+          blocks.push(line);
+        }
+        if(!blocks.length) return '';
+        return 'Contexto de Wikipedia para grounding (no mostrar tal cual si es redundante):\n' + blocks.join('\n');
+      }catch(_e){ return ''; }
     }
 
     function setMode(mode){
