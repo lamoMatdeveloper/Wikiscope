@@ -1,13 +1,11 @@
-﻿{
-  "supabase": {
-    "url": "https://your-project.supabase.co",
-    "anonKey": "SUPABASE_ANON_PUBLIC_KEY"
-  },
-  "deepseek": {
-    "proxyUrl": "https://your-secure-proxy.example.com/api/deepseek",
-    "model": "deepseek-chat",
-    "headers": {
-      "Authorization": "Bearer {{SERVER_SIDE_TOKEN}}"
-    }
-  }
-}
+Wikipedia API:
+Client ID:
+4324ee75653d002d031df01a91babbcf
+Client secret:
+8628e0541d0c58badae00dbb5945fda6f623509b
+Access token:
+eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0MzI0ZWU3NTY1M2QwMDJkMDMxZGYwMWE5MWJhYmJjZiIsImp0aSI6IjA0YmU3M2FiY2UwYmNmN2NlYWQ0ZmNmNjI0Mjk0MTRkYjdlMjBhZDEyZjZjM2RiM2JkZmNmNTEwOTk0NTEwMDU2MGU4ZTYyZmZmZjY4Mjg4IiwiaWF0IjoxNzU4OTQ3MzQ4LjYzNDUxNiwibmJmIjoxNzU4OTQ3MzQ4LjYzNDUxOCwiZXhwIjozMzMxNTg1NjE0OC42MzI3OTcsInN1YiI6Ijc5NjQzNjk5IiwiaXNzIjoiaHR0cHM6Ly9tZXRhLndpa2ltZWRpYS5vcmciLCJyYXRlbGltaXQiOnsicmVxdWVzdHNfcGVyX3VuaXQiOjUwMDAsInVuaXQiOiJIT1VSIn0sInNjb3BlcyI6WyJiYXNpYyJdfQ.K21NH-EFlVSgSMCyp2PFRiYJLHjtUyujryQbGy6HuAW-R5Wbhxt2SVSfqlUXwaWdWf8OTE714mIXgI5JkTAxLlqGOVxmc0i7E0ar8Gh0v_7jow0N1bGbdrAPjEdewYXdkTS-Ne-uSo34mMWAZGlV3JrgMkJCXrpd7IB4fcUO2VyUloqcB4kDxrAjDkVYfUMRFn-EVy0gBnsBmJ-FKktTean9Zg379CqQj7aQBjbBIl46oZrf0bvUGMrWxH6QofyW_N4OMtI9okKeIJfVR45as8xA5RmAPDEXn4rc5Yb8Q40t0-0qxFL-s9QxWvgQK8lG3Ug3gLdNo2XIxMxgVewSYTnGpttW1RA7MfHhA0r_4lu0D44FvAu1vKfuWbNG1SGuvDzGKcSauoiFqM8Wy-nHWLL3g9-6lidFv1eywaE8Ys4Bf1ZbXRotS6QgCSYjYaOLcwwR11cE08Y6pI31-NRKkjHYwdiITRh8LXqIOkzvo9o7Jjtf5XU2OUatrxEAI1fx55pWCEJ7bVh9vp7O4QpL9TDQ6i7PXJsNfi95whAWf1A7nGNpbORx3FrWXxhFbPe8xxpeoyTkc5Ha64tYAL2SAijjfUbHtiUfDJlRje-HP9tRhRY8-2ubbXg3sHkOp4QpISFMR3P7jsxEEfwcYIeyyYC_1cCFlLNkeFkQHNCrKuA
+
+# Get today’s featured article from English Wikipedia
+curl -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/$(date +%Y/%m/%d)"
