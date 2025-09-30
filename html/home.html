@@ -755,7 +755,7 @@
         ].filter(Boolean);
 
         const provider = state.prefs.provider || 'deepseek';
-        const model = state.prefs.model || (provider==='openai' ? 'chatgpt-5-nano' : 'deepseek-chat');
+        const model = state.prefs.model || (provider==='openai' ? 'chatgpt-5-nano' : provider==='gemini' ? 'gemini-1.5-flash' : 'deepseek-chat');
         const payload = { model, messages, temperature: Number(state.prefs?.temp ?? 0.2), max_tokens: 700 };
         let res;
         if(provider==='deepseek'){
@@ -781,6 +781,14 @@
             });
           }else{
             throw new Error('OpenAI sin proxy. Configura openai.proxyUrl en vault.ink');
+          }
+        } else if(provider==='gemini'){
+          const cfg = state.config?.gemini || {};
+          if(cfg.proxyUrl){
+            const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
+            res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
+          }else{
+            throw new Error('Gemini requiere proxy. Configura gemini.proxyUrl en vault.ink');
           }
         }
         if(!res.ok) throw new Error('El proxy respondió ' + res.status);
