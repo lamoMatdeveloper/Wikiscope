@@ -93,34 +93,20 @@
 <body>
   <div class="wrap">
     <main id="card" class="card" data-view="login">
-      <div class="logo-wrap" style="display: none;">
+      <div class="logo-wrap">
         <img src="../Documentos/Imágenes/WikiScope_logo.png" alt="Logo WikiScope">
         <h1 class="title">WikiScope</h1>
-        <p class="muted">Exploración personalizada con IA citada</p>
+        <p class="tagline">Exploración personalizada con IA citada</p>
       </div>
       <div id="config-warning" class="config-warning" role="alert" style="display:none"></div>
-      <div class="steps" aria-label="Progreso" style="display: none;">
+      <div class="steps" aria-label="Progreso">
         <div class="dot" id="dot-login"></div>
         <div class="dot" id="dot-verify"></div>
         <div class="dot" id="dot-prefs"></div>
       </div>
 
-      <!-- INITIAL -->
-      <section id="view-initial" class="stack" aria-live="polite" style="text-align:center;">
-        <img src="../Documentos/Imágenes/WikiScope_logo.png" alt="Logo WikiScope" style="width: 80px; height: 80px; margin: 0 auto 12px;">
-        <h1 class="title" style="margin-bottom: 4px;">WikiScope</h1>
-        <p class="muted" style="font-size: 16px; margin-top: 0; margin-bottom: 24px;">Exploración personalizada con IA citada</p>
-        
-        <div class="stack" style="text-align:left;">
-          <button id="btn-go-login" class="btn">Continuar</button>
-          <div class="links" style="margin-top: 16px; justify-content: center;">
-            <span class="muted">¿No tienes una cuenta? <a class="link" href="#" id="link-go-signup">Regístrate</a></span>
-          </div>
-        </div>
-      </section>
-
       <!-- LOGIN -->
-      <section id="view-login" class="stack" aria-live="polite" style="display:none">
+      <section id="view-login" class="stack" aria-live="polite">
         <h2 class="subtitle">Inicia sesión</h2>
         <div class="stack">
           <div class="field">
@@ -254,8 +240,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    // Prioriza archivos personales con credenciales reales
-    const VAULT_PATHS = ['../Documentos/personal/personal_vault.ink', '../Documentos/personal/vault.ink', 'vault.ink'];
+    const VAULT_PATH = '../Documentos/personal/vault.ink';
     const STORAGE_KEY = 'wikiscope:prefs';
 
     const $ = (s)=>document.querySelector(s);
@@ -264,41 +249,14 @@
     const state = { supabase:null, signupEmail:'' };
 
     const toast = (m)=>{ const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2200); };
-    
-    const showView = (id) => {
-      // Hide all views
-      ['#view-initial', '#view-login', '#view-signup', '#view-verify', '#view-prefs'].forEach(sel => {
-        if ($(sel)) $(sel).style.display = 'none';
-      });
-
-      // Show the target view
-      if ($(id)) {
-        $(id).style.display = (id === '#view-prefs') ? 'block' : 'grid';
-      }
-
-      const isInitial = id === '#view-initial';
-      const isPrefs = id === '#view-prefs';
-
-      // The original logo-wrap and steps are not part of the new design
-      if ($('.logo-wrap')) $('.logo-wrap').style.display = isInitial ? 'none' : 'block';
-      if ($('.steps')) $('.steps').style.display = isInitial || isPrefs ? 'none' : 'flex';
-
-      // Set card view for styling (width)
-      const viewName = id.substring(6); // from '#view-'
-      if (isInitial) {
-        card.dataset.view = 'login'; // Reuse login view's width
-      } else if (['login', 'signup', 'verify', 'prefs'].includes(viewName)) {
-        card.dataset.view = viewName;
-      }
-
-      // Update progress dots
-      if ($('#dot-login')) {
-          $('#dot-login').classList.toggle('active', id === '#view-login' || id === '#view-signup');
-          $('#dot-verify').classList.toggle('active', id === '#view-verify');
-          $('#dot-prefs').classList.toggle('active', id === '#view-prefs');
-      }
+    const showView = (id)=>{
+      ['#view-login','#view-signup','#view-verify','#view-prefs'].forEach(sel=>$(sel).style.display='none');
+      $(id).style.display = id==='#view-prefs' ? 'block' : 'grid';
+      card.dataset.view = id==='#view-login' ? 'login' : id==='#view-signup' ? 'signup' : id==='#view-verify' ? 'verify' : 'prefs';
+      $('#dot-login').classList.toggle('active', id!=='#view-prefs');
+      $('#dot-verify').classList.toggle('active', id==='#view-verify');
+      $('#dot-prefs').classList.toggle('active', id==='#view-prefs');
     };
-
     const setLoading = (btn,on=true)=>{ btn.disabled=on; const t=btn.textContent; if(on){ btn.dataset.label=t; btn.textContent='Procesando…'; } else { btn.textContent=btn.dataset.label || t; } };
     const mapAuthError = (e)=>{
       const m=(e?.message||'').toLowerCase();
@@ -312,19 +270,12 @@
     init();
 
     async function init(){
-      showView('#view-initial');
+      showView('#view-login');
       try{
         const config = await loadVault();
         const supa = config?.supabase || {};
-        const isUnset = (v)=> !v || (typeof v === 'string' && /<|\{\{/.test(v));
-        // Ensure SDK is available
-        if(!window.supabase?.createClient){
-          showConfigWarning('No se pudo cargar el SDK de Supabase. Revisa tu conexión a Internet.');
-          disableInteractions();
-          return;
-        }
-        if(isUnset(supa.url) || isUnset(supa.anonKey)){
-          showConfigWarning('Completa supabase.url y supabase.anonKey en vault.ink (o Documentos/personal/vault.ink)');
+        if(!supa.url || !supa.anonKey){
+          showConfigWarning('Completa supabase.url y supabase.anonKey en Documentos/personal/vault.ink');
           disableInteractions();
           return;
         }
@@ -332,16 +283,13 @@
         registerHandlers();
         $('#config-warning').style.display='none';
       }catch(err){
-        console.error('Error cargando configuración (vault.ink)', err);
-        showConfigWarning('No se pudo leer la configuración (vault.ink). Revisa que sea JSON válido.');
+        console.error('Error cargando vault.ink', err);
+        showConfigWarning('No se pudo cargar vault.ink. Revisa el archivo y recarga.');
         disableInteractions();
       }
     }
 
     function registerHandlers(){
-      $('#btn-go-login').addEventListener('click', () => showView('#view-login'));
-      $('#link-go-signup').addEventListener('click', (e) => { e.preventDefault(); showView('#view-signup'); });
-
       $('#btn-login').addEventListener('click', onLogin);
       $('#link-open-signup').addEventListener('click', (e)=>{ e.preventDefault(); showView('#view-signup'); });
       $('#btn-cancel-signup').addEventListener('click', ()=>showView('#view-login'));
@@ -379,25 +327,10 @@
     }
 
     async function loadVault(){
-      // Try multiple locations and be tolerant to extra non-JSON text
-      for(const p of VAULT_PATHS){
-        try{
-          const res = await fetch(p, { cache:'no-store' });
-          if(!res.ok) continue;
-          const txt = (await res.text()).trim();
-          if(!txt) continue;
-          try{ return JSON.parse(txt); }
-          catch(_){
-            // Attempt to extract JSON block if the file has notes after/before
-            const start = txt.indexOf('{');
-            const end = txt.lastIndexOf('}');
-            if(start >= 0 && end > start){
-              try{ return JSON.parse(txt.slice(start, end+1)); }catch(__){}
-            }
-          }
-        }catch(_){ /* try next path */ }
-      }
-      return {};
+      const res = await fetch(VAULT_PATH, { cache:'no-store' });
+      if(!res.ok) throw new Error('Vault no accesible');
+      const text = (await res.text()).trim();
+      return text ? JSON.parse(text) : {};
     }
 
     function showConfigWarning(message){
@@ -416,28 +349,18 @@
       $('#login-error').textContent='';
       if(!email || !password){ $('#login-error').textContent='Completa email y contraseña.'; return; }
       setLoading($('#btn-login'), true);
-      const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
       setLoading($('#btn-login'), false);
       if(error){ $('#login-error').textContent=mapAuthError(error); return; }
-      
-      // On successful login, check if user has preferences
-      const { data: profile } = await state.supabase.from('profiles').select('username').eq('id', data.user.id).single();
-      
-      if (profile && profile.username) {
-        toast('Sesión iniciada');
-        window.location.href = 'home.html';
-      } else {
-        // First time login after signup, show preferences
-        toast('Correo verificado');
-        showView('#view-prefs');
-      }
+      toast('Sesión iniciada');
+      showView('#view-prefs');
     }
 
     async function onForgotPassword(e){
       e.preventDefault();
       const email=$('#login-email').value.trim();
       if(!email){ toast('Escribe tu email arriba'); return; }
-      const { error } = await state.supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname.replace('loggin.html', '') + '#password-reset' });
+      const { error } = await state.supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/#password-reset' });
       if(error){ toast('Error al solicitar recuperación'); return; }
       toast('Revisa tu correo para recuperar contraseña');
     }
@@ -475,11 +398,9 @@
       if(token.length<6){ $('#verify-error').textContent='Código incompleto.'; return; }
       if(!email){ $('#verify-error').textContent='Falta el email utilizado en el registro.'; return; }
       setLoading($('#btn-verify'), true);
-      const { data, error } = await state.supabase.auth.verifyOtp({ email, token, type:'signup' });
+      const { error } = await state.supabase.auth.verifyOtp({ email, token, type:'signup' });
       setLoading($('#btn-verify'), false);
       if(error){ $('#verify-error').textContent=mapAuthError(error); return; }
-      
-      // After verification, go to preferences
       toast('Correo verificado');
       showView('#view-prefs');
     }
@@ -505,34 +426,17 @@
 
     async function savePrefs(){
       const prefs = collectPrefs();
-      if(!prefs.username) {
-        $('#prefs-error').textContent = 'Por favor, elige un nombre de usuario.';
-        return;
-      }
-      $('#prefs-error').textContent = '';
-      
       localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-      setLoading($('#btn-save'), true);
       try{
         const { data:{ user } } = await state.supabase.auth.getUser();
         if(user){
           await state.supabase.from('profiles').upsert({
-            id:user.id, 
-            username:prefs.username, 
-            lang:prefs.lang,
-            level:prefs.level, 
-            format:prefs.format, 
-            focus:prefs.focus,
-            show_cites:prefs.show_cites,
-            updated_at: new Date()
+            id:user.id, username:prefs.username, lang:prefs.lang,
+            level:prefs.level, format:prefs.format, focus:prefs.focus,
+            show_cites:prefs.show_cites
           });
         }
-      }catch(e){ 
-        $('#prefs-error').textContent = 'Error al guardar las preferencias.';
-        setLoading($('#btn-save'), false);
-        return;
-      }
-      setLoading($('#btn-save'), false);
+      }catch(_e){ /* silencioso en prototipo */ }
       toast('Preferencias guardadas');
       window.location.href = 'home.html';
     }
@@ -555,15 +459,6 @@
       else if(v>20){pct=33; name='Aceptable'; color='#f59e0b';}
       else {pct=15; name='Débil'; color='#f43f5e';}
       bar.style.width=pct+'%'; bar.style.background=color; lbl.textContent=name;
-    }
-
-    // Handle password reset flow
-    if (location.hash.includes('password-reset')) {
-        // Supabase redirects with #access_token=...&refresh_token=...
-        // We need to handle this to complete the password reset.
-        // A simple way is to show a view to enter a new password.
-        // This part is complex, for now we just acknowledge it.
-        // A proper implementation would show a password reset form.
     }
   </script>
 

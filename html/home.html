@@ -354,6 +354,27 @@
 
   <script src="scripts/wikipedia.js"></script>
   <script>
+    // Claves expuestas para prototipado (reemplaza por las tuyas si quieres probar sin proxy)
+    // NOTA: Estas claves quedan visibles en el cliente. Úsalas solo para prototipos.
+    const PROTOTYPE_CONFIG = {
+      deepseek: {
+        apiBase: 'https://api.deepseek.com',
+        apiKey: '' // Pegue aquí su clave de DeepSeek para pruebas
+      },
+      openai: {
+        apiBase: 'https://api.openai.com/v1',
+        apiKey: '' // Opcional para probar OpenAI directamente
+      },
+      gemini: {
+        apiKey: '' // Opcional para probar Gemini directamente
+      }
+    };
+
+    function getProviderConfig(provider){
+      const fromVault = (state?.config && state.config[provider]) || {};
+      const proto = PROTOTYPE_CONFIG[provider] || {};
+      return Object.assign({}, proto, fromVault);
+    }
     const STORAGE_KEY = 'wikiscope:prefs';
     const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
     // Soporta varias ubicaciones de configuración del usuario
@@ -374,8 +395,8 @@
         structure: ['bullets'],
         cite_level: 0.7,
         notes: '',
-        provider: 'deepseek',
-        model: 'deepseek-chat'
+        provider: 'openai',
+        model: 'chatgpt-5-nano'
       },
       config: null,
       systemPrompt: '',
@@ -431,6 +452,15 @@
       renderPrefs();
       // inicializar controles de modo/temperatura
       updateModeUI();
+      // Si no hay apiKey para el proveedor actual pero sí para OpenAI, forzar OpenAI + chatgpt-5-nano
+      try{
+        const curr = state.prefs.provider || 'deepseek';
+        const currCfg = getProviderConfig(curr);
+        if(!currCfg.apiKey && getProviderConfig('openai').apiKey){
+          state.prefs.provider = 'openai';
+          state.prefs.model = 'chatgpt-5-nano';
+        }
+      }catch(_){/* noop */}
       initProviderModelSelectors();
       bindEvents();
       updatePersonaSummary();
@@ -443,14 +473,40 @@
           if(!res.ok) continue;
           const txt = (await res.text()).trim();
           if(!txt) continue;
-          try{ return JSON.parse(txt) || {}; }
-          catch(_){
+          let base = {};
+          try {
+            base = JSON.parse(txt) || {};
+          } catch(_){
             const start = txt.indexOf('{');
             const end = txt.lastIndexOf('}');
             if(start>=0 && end>start){
-              try{ return JSON.parse(txt.slice(start,end+1)) || {}; }catch(__){}
+              try{ base = JSON.parse(txt.slice(start,end+1)) || {}; }catch(__){}
             }
           }
+          // Intenta extraer llaves sueltas escritas en texto libre (prototipado)
+          try{
+            const extras = {};
+            // OpenAI project or secret keys
+            const openaiKeyMatch = txt.match(/sk-(?:proj-)?[A-Za-z0-9_\-]{16,}/);
+            if(openaiKeyMatch){
+              extras.openai = Object.assign({}, base.openai||{}, { apiKey: openaiKeyMatch[0] });
+            }
+            // Gemini API key
+            const gemKeyMatch = txt.match(/AIza[0-9A-Za-z_\-]{20,}/);
+            if(gemKeyMatch){
+              extras.gemini = Object.assign({}, base.gemini||{}, { apiKey: gemKeyMatch[0] });
+            }
+            // DeepSeek key (heurística: otra clave sk- distinta de la primera)
+            const allSk = txt.match(/sk-[A-Za-z0-9_\-]{16,}/g) || [];
+            if(allSk.length>1){
+              const candidate = allSk.find(k=> !openaiKeyMatch || k !== openaiKeyMatch[0]);
+              if(candidate){
+                extras.deepseek = Object.assign({}, base.deepseek||{}, { apiKey: candidate });
+              }
+            }
+            base = Object.assign({}, base, extras);
+          }catch(__){ /* noop */ }
+          return base;
         }catch(_){ /* siguiente ruta */ }
       }
       return {};
@@ -459,11 +515,8 @@
     function initProviderModelSelectors(){
       const providerSel = $('#provider-select');
       const modelSel = $('#model-select');
-      const providers = [];
-      if(state.config?.deepseek) providers.push('deepseek');
-      if(state.config?.openai) providers.push('openai');
-      if(state.config?.gemini) providers.push('gemini');
-      if(providers.length===0) providers.push('deepseek');
+      // Siempre habilitamos los tres proveedores para prototipado
+      const providers = ['deepseek','openai','gemini'];
       providerSel.innerHTML = providers.map(p=> `<option value="${p}">${p}</option>`).join('');
       // aplicar preferencia guardada
       if(state.prefs.provider && providers.includes(state.prefs.provider)) providerSel.value = state.prefs.provider;
@@ -484,14 +537,15 @@
       const modelSel = $('#model-select');
       let models = [];
       if(provider==='deepseek'){
-        const cfg = state.config?.deepseek || {};
-        models = cfg.models || [cfg.model || 'deepseek-chat', 'deepseek-coder'];
+        const cfg = getProviderConfig('deepseek');
+        models = cfg.models || [cfg.model || 'deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'];
       }else if(provider==='openai'){
-        const cfg = state.config?.openai || {};
-        models = cfg.models || [cfg.model || 'chatgpt-5-nano', 'gpt-4o-mini'];
+        const cfg = getProviderConfig('openai');
+        // Solo ChatGPT-5-Nano para OpenAI en este prototipo
+        models = cfg.models || [cfg.model || 'chatgpt-5-nano'];
       }else if(provider==='gemini'){
-        const cfg = state.config?.gemini || {};
-        models = cfg.models || [cfg.model || 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+        const cfg = getProviderConfig('gemini');
+        models = cfg.models || [cfg.model || 'gemini-1.5-flash', 'gemini-1.5-pro'];
       }
       models = [...new Set(models.filter(Boolean))];
       modelSel.innerHTML = models.map(m=> `<option value="${m}">${m}</option>`).join('');
@@ -797,35 +851,35 @@
         const payload = { model, messages, temperature: Number(state.prefs?.temp ?? 0.2), max_tokens: 700 };
         let res;
         if(provider==='deepseek'){
-          const cfg = state.config?.deepseek || {};
+          const cfg = getProviderConfig('deepseek');
           if(cfg.proxyUrl){
             const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
             res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
-          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+          }else if(cfg.apiKey){
             res = await fetch((cfg.apiBase||'https://api.deepseek.com') + '/chat/completions', {
               method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${cfg.apiKey}` }, body: JSON.stringify(payload)
             });
           }else{
-            throw new Error('DeepSeek sin proxy. Configura deepseek.proxyUrl en vault.ink');
+            throw new Error('DeepSeek sin proxy ni apiKey. Define PROTOTYPE_CONFIG.deepseek.apiKey o usa vault.ink');
           }
         } else if(provider==='openai'){
-          const cfg = state.config?.openai || {};
+          const cfg = getProviderConfig('openai');
           if(cfg.proxyUrl){
             const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
             res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
-          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+          }else if(cfg.apiKey){
             res = await fetch((cfg.apiBase||'https://api.openai.com/v1') + '/chat/completions', {
               method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${cfg.apiKey}` }, body: JSON.stringify(payload)
             });
           }else{
-            throw new Error('OpenAI sin proxy. Configura openai.proxyUrl en vault.ink');
+            throw new Error('OpenAI sin apiKey ni proxy. Define PROTOTYPE_CONFIG.openai.apiKey o usa vault.ink');
           }
         } else if(provider==='gemini'){
-          const cfg = state.config?.gemini || {};
+          const cfg = getProviderConfig('gemini');
           if(cfg.proxyUrl){
             const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
             res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify({ ...payload, provider:'gemini' }) });
-          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+          }else if(cfg.apiKey){
             // Convertir a formato Gemini
             const sysText = (messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n')).trim();
             const core = messages.filter(m=>m.role!=='system').map(m=> ({
@@ -857,7 +911,7 @@
         appendAssistantMessage(reply);
         if (statusEl) statusEl.textContent = 'Agente listo';
       }catch(err){
-        appendAssistant('No se pudo contactar al agente: ' + err.message);
+        appendAssistantMessage('No se pudo contactar al agente: ' + err.message);
         if (statusEl) statusEl.textContent = 'Error de conexión';
       }finally{
         button.disabled = false;
