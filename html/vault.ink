@@ -1,5 +1,11 @@
 {
   "supabase": {
+    "url": "https://kgbqnculrvsrjsqfhcts.supabase.co",
+    "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFuY3VscnZzcmpzcWZoY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyMDE4MjQsImV4cCI6MjA3NDc3NzgyNH0.D6O1QD0TZkhWLgtiZKPw2zwLJP2rwpK5dDiv79ra4xc"
+  },
+}
+{
+  "supabase": {
     "url": "<existing-supabase-url>",
     "anonKey": "<existing-anon-key>"
   },

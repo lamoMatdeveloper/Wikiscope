@@ -9,3 +9,6 @@ eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0MzI0ZWU3NTY1M2QwMDJkMDMxZGYwMWE
 # Get today’s featured article from English Wikipedia
 curl -H "Authorization: Bearer ${ACCESS_TOKEN}" \
 "https://api.wikimedia.org/feed/v1/wikipedia/en/featured/$(date +%Y/%m/%d)"
+
+https://kgbqnculrvsrjsqfhcts.supabase.co
+API: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFuY3VscnZzcmpzcWZoY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyMDE4MjQsImV4cCI6MjA3NDc3NzgyNH0.D6O1QD0TZkhWLgtiZKPw2zwLJP2rwpK5dDiv79ra4xc

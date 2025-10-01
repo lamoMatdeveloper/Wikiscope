@@ -254,7 +254,8 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const VAULT_PATH = '../Documentos/personal/vault.ink';
+    // Prioriza archivos personales con credenciales reales
+    const VAULT_PATHS = ['../Documentos/personal/personal_vault.ink', '../Documentos/personal/vault.ink', 'vault.ink'];
     const STORAGE_KEY = 'wikiscope:prefs';
 
     const $ = (s)=>document.querySelector(s);
@@ -315,8 +316,15 @@
       try{
         const config = await loadVault();
         const supa = config?.supabase || {};
-        if(!supa.url || !supa.anonKey){
-          showConfigWarning('Completa supabase.url y supabase.anonKey en Documentos/personal/vault.ink');
+        const isUnset = (v)=> !v || (typeof v === 'string' && /<|\{\{/.test(v));
+        // Ensure SDK is available
+        if(!window.supabase?.createClient){
+          showConfigWarning('No se pudo cargar el SDK de Supabase. Revisa tu conexión a Internet.');
+          disableInteractions();
+          return;
+        }
+        if(isUnset(supa.url) || isUnset(supa.anonKey)){
+          showConfigWarning('Completa supabase.url y supabase.anonKey en vault.ink (o Documentos/personal/vault.ink)');
           disableInteractions();
           return;
         }
@@ -324,8 +332,8 @@
         registerHandlers();
         $('#config-warning').style.display='none';
       }catch(err){
-        console.error('Error cargando vault.ink', err);
-        showConfigWarning('No se pudo cargar vault.ink. Revisa el archivo y recarga.');
+        console.error('Error cargando configuración (vault.ink)', err);
+        showConfigWarning('No se pudo leer la configuración (vault.ink). Revisa que sea JSON válido.');
         disableInteractions();
       }
     }
@@ -371,10 +379,25 @@
     }
 
     async function loadVault(){
-      const res = await fetch(VAULT_PATH, { cache:'no-store' });
-      if(!res.ok) throw new Error('Vault no accesible');
-      const text = (await res.text()).trim();
-      return text ? JSON.parse(text) : {};
+      // Try multiple locations and be tolerant to extra non-JSON text
+      for(const p of VAULT_PATHS){
+        try{
+          const res = await fetch(p, { cache:'no-store' });
+          if(!res.ok) continue;
+          const txt = (await res.text()).trim();
+          if(!txt) continue;
+          try{ return JSON.parse(txt); }
+          catch(_){
+            // Attempt to extract JSON block if the file has notes after/before
+            const start = txt.indexOf('{');
+            const end = txt.lastIndexOf('}');
+            if(start >= 0 && end > start){
+              try{ return JSON.parse(txt.slice(start, end+1)); }catch(__){}
+            }
+          }
+        }catch(_){ /* try next path */ }
+      }
+      return {};
     }
 
     function showConfigWarning(message){

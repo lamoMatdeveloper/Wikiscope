@@ -356,8 +356,8 @@
   <script>
     const STORAGE_KEY = 'wikiscope:prefs';
     const SYSTEM_PROMPT_PATH = '../Documentos/contexto/research_agent_prompt.md';
-    // Usar solamente el vault del frontend
-    const VAULT_PATH = 'vault.ink';
+    // Soporta varias ubicaciones de configuración del usuario
+    const VAULT_PATHS = ['../Documentos/personal/personal_vault.ink', '../Documentos/personal/vault.ink', 'vault.ink'];
 
     const state = {
       prefs: {
@@ -437,14 +437,23 @@
     }
 
     async function loadVault(){
-      const res = await fetch(VAULT_PATH, { cache: 'no-store' });
-      if(!res.ok) return {};
-      const txt = (await res.text()).trim();
-      if(!txt) return {};
-      try{
-        const cfg = JSON.parse(txt);
-        return cfg || {};
-      }catch(_){ return {}; }
+      for(const p of VAULT_PATHS){
+        try{
+          const res = await fetch(p, { cache: 'no-store' });
+          if(!res.ok) continue;
+          const txt = (await res.text()).trim();
+          if(!txt) continue;
+          try{ return JSON.parse(txt) || {}; }
+          catch(_){
+            const start = txt.indexOf('{');
+            const end = txt.lastIndexOf('}');
+            if(start>=0 && end>start){
+              try{ return JSON.parse(txt.slice(start,end+1)) || {}; }catch(__){}
+            }
+          }
+        }catch(_){ /* siguiente ruta */ }
+      }
+      return {};
     }
 
     function initProviderModelSelectors(){
@@ -453,6 +462,7 @@
       const providers = [];
       if(state.config?.deepseek) providers.push('deepseek');
       if(state.config?.openai) providers.push('openai');
+      if(state.config?.gemini) providers.push('gemini');
       if(providers.length===0) providers.push('deepseek');
       providerSel.innerHTML = providers.map(p=> `<option value="${p}">${p}</option>`).join('');
       // aplicar preferencia guardada
@@ -479,6 +489,9 @@
       }else if(provider==='openai'){
         const cfg = state.config?.openai || {};
         models = cfg.models || [cfg.model || 'chatgpt-5-nano', 'gpt-4o-mini'];
+      }else if(provider==='gemini'){
+        const cfg = state.config?.gemini || {};
+        models = cfg.models || [cfg.model || 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
       }
       models = [...new Set(models.filter(Boolean))];
       modelSel.innerHTML = models.map(m=> `<option value="${m}">${m}</option>`).join('');
@@ -811,14 +824,35 @@
           const cfg = state.config?.gemini || {};
           if(cfg.proxyUrl){
             const headers = Object.assign({ 'Content-Type':'application/json' }, sanitizeHeaders(cfg.headers));
-            res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify(payload) });
+            res = await fetch(cfg.proxyUrl, { method:'POST', headers, body: JSON.stringify({ ...payload, provider:'gemini' }) });
+          }else if(cfg.apiKey && (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.protocol==='file:')){
+            // Convertir a formato Gemini
+            const sysText = (messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n')).trim();
+            const core = messages.filter(m=>m.role!=='system').map(m=> ({
+              role: m.role==='assistant' ? 'model' : 'user',
+              parts: [{ text: m.content }]
+            }));
+            const body = {
+              contents: core,
+              generationConfig: { temperature: Number(state.prefs?.temp ?? 0.2), maxOutputTokens: 700 }
+            };
+            if(sysText) body.system_instruction = { parts: [{ text: sysText }] };
+            const modelId = model || 'gemini-1.5-flash';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`;
+            res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
           }else{
-            throw new Error('Gemini requiere proxy. Configura gemini.proxyUrl en vault.ink');
+            throw new Error('Gemini requiere proxy o apiKey en local. Configura gemini.proxyUrl o gemini.apiKey.');
           }
         }
         if(!res.ok) throw new Error('El proxy respondió ' + res.status);
         const data = await res.json();
-        const reply = data?.choices?.[0]?.message?.content?.trim() || 'No recibí contenido del modelo.';
+        let reply = '';
+        if(provider==='gemini'){
+          reply = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();
+        }else{
+          reply = data?.choices?.[0]?.message?.content?.trim();
+        }
+        reply = reply || 'No recibí contenido del modelo.';
         state.conversation.push({ role:'assistant', content: reply, createdAt:Date.now() });
         appendAssistantMessage(reply);
         if (statusEl) statusEl.textContent = 'Agente listo';
